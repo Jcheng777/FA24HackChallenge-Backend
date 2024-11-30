@@ -13,8 +13,8 @@ class User(db.Model):
   username = db.Column(db.String, nullable=False)
   email = db.Column(db.String, nullable=False)
   password = db.Column(db.String, nullable=False)
-  posts = db.relationship("Post", back_populates="users", cascade="delete")
-  recipes = db.relationship("Recipe", back_populates="users", cascade="delete")
+  posts = db.relationship("Post", cascade="delete")
+  recipes = db.relationship("Recipe", cascade="delete")
   
   
   def __init__(self, **kwargs):
@@ -31,7 +31,8 @@ class User(db.Model):
     """
     return {
       "id": self.id,
-      "username": self.username
+      "username": self.username,
+      "posts": [p.serialize() for p in self.posts]
     }
 
 
@@ -70,16 +71,8 @@ class Post(db.Model):
       "image_url": self.image_url,
       "title": self.title,
       "caption": self.caption,
-      "created_at": self.created_at
+      "created_at": self.created_at.isoformat()
     }
-
-
-class MealTypeEnum(enum.Enum):
-  breakfast = "breakfast"
-  lunch = "lunch"
-  dinner = "dinner"
-  snack = "snack"
-  any = "any"
 
 class Recipe(db.Model): 
   """ 
@@ -90,7 +83,7 @@ class Recipe(db.Model):
   title = db.Column(db.String, nullable=False)
   description = db.Column(db.String, nullable=False) 
   instructions = db.Column(db.String, nullable=False)
-  meal_type = db.Column(db.Enum(MealTypeEnum), nullable=True)
+  meal_type = db.Column(db.String, nullable=True)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
   post_id = db.Column(db.Integer, db.ForeignKey("posts.id"), nullable=False)
 
@@ -101,7 +94,7 @@ class Recipe(db.Model):
     self.title = kwargs.get("title", "")
     self.description = kwargs.get("description", "")
     self.instructions = kwargs.get("instructions", "")
-    self.meal_type = kwargs.get("meal_type", MealTypeEnum.any)
+    self.meal_type = kwargs.get("meal_type", "any")
     self.user_id = kwargs.get("user_id", "")
     self.post_id = kwargs.get("post_id", "")
   
@@ -152,13 +145,13 @@ class RecipeIngredientAssociation(db.Model):
   """
   __tablename__ = "recipe_ingredient_association"
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-  recipe_id = db.Column(db.Integer, db.ForeignKey("recipe.id"))
-  ingredient_id = db.Column(db.Integer, db.ForeignKey("ingredient.id"))
+  recipe_id = db.Column(db.Integer, db.ForeignKey("recipes.id"))
+  ingredient_id = db.Column(db.Integer, db.ForeignKey("ingredients.id"))
   quantity = db.Column(db.String, nullable=False)
   unit = db.Column(db.String, nullable=False)
 
   # Relationships
-  ingredient = db.relationship("Ingredient", back_populates="ingredient_recipes")
+  ingredient = db.relationship("Ingredient")
 
   def __init__(self, **kwargs):
     self.recipe_id = kwargs.get("recipe_id")
