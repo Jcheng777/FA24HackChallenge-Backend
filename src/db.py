@@ -74,6 +74,20 @@ class Post(db.Model):
       "created_at": self.created_at.isoformat()
     }
 
+
+recipe_ingredient_association_table = db.Table(
+  """ 
+  Association table between Recipes and Ingredients
+  """
+  "recipe_ingredient_association",
+  db.Model.metadata,
+  db.Column("recipe_id", db.Integer, db.ForeignKey("recipes.id")),
+  db.Column("ingredient_id", db.Integer, db.ForeignKey("ingredients.id")),
+  db.Column("quantity", db.String, nullable=False),
+  db.Column("unit", db.String, nullable=False)
+)
+
+
 class Recipe(db.Model): 
   """ 
   Recipe Model
@@ -83,9 +97,13 @@ class Recipe(db.Model):
   title = db.Column(db.String, nullable=False)
   description = db.Column(db.String, nullable=False) 
   instructions = db.Column(db.String, nullable=False)
-  meal_type = db.Column(db.String, nullable=True)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
   post_id = db.Column(db.Integer, db.ForeignKey("posts.id"), nullable=False)
+  rating = db.Column(db.Integer, nullable=True)
+  time = db.Column(db.Integer, nullable=False)
+  servings = db.Column(db.Integer, nullable=False)
+  image_url = db.Column(db.String, nullable=False)
+  ingredients = db.relationship("Ingredient", secondary=recipe_ingredient_association_table, back_populates = "recipes")
 
   def __init__(self, **kwargs):
     """
@@ -94,9 +112,13 @@ class Recipe(db.Model):
     self.title = kwargs.get("title", "")
     self.description = kwargs.get("description", "")
     self.instructions = kwargs.get("instructions", "")
-    self.meal_type = kwargs.get("meal_type", "any")
     self.user_id = kwargs.get("user_id", "")
     self.post_id = kwargs.get("post_id", "")
+    self.rating = kwargs.get("rating", None)
+    self.time = kwargs.get("time", 0)
+    self.servings = kwargs.get("servings", 1)
+    self.image_url = kwargs.get("image_url", "")
+
   
   def serialize(self):
     """ 
@@ -107,7 +129,12 @@ class Recipe(db.Model):
       "title": self.title,
       "description": self.description,
       "instructions": self.instructions,
-      "meal_type": self.meal_type,
+      "user_id": self.user_id,
+      "rating": self.rating,
+      "time": self.time,
+      "servings": self.servings,
+      "image_url": self.image_url,
+      "ingredients": [i.serialize() for i in self.ingredients]
     }
 
 
@@ -118,6 +145,7 @@ class Ingredient(db.Model):
   __tablename__ = "ingredients"
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   name = db.Column(db.String, nullable=False)
+  recipes = db.relationship("Recipe", secondary=recipe_ingredient_association_table, back_populates="ingredients")
 
   # Relationship to RecipeIngredientAssociation
   # ingredient_recipes = db.relationship(
@@ -137,34 +165,4 @@ class Ingredient(db.Model):
     return {
       "id": self.id,
       "name": self.name
-    }
-
-class RecipeIngredientAssociation(db.Model):
-  """ 
-  Association table between Recipes and Ingredients
-  """
-  __tablename__ = "recipe_ingredient_association"
-  id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-  recipe_id = db.Column(db.Integer, db.ForeignKey("recipes.id"))
-  ingredient_id = db.Column(db.Integer, db.ForeignKey("ingredients.id"))
-  quantity = db.Column(db.String, nullable=False)
-  unit = db.Column(db.String, nullable=False)
-
-  # Relationships
-  ingredient = db.relationship("Ingredient")
-
-  def __init__(self, **kwargs):
-    self.recipe_id = kwargs.get("recipe_id")
-    self.ingredient_id = kwargs.get("ingredient_id")
-    self.quantity = kwargs.get("quantity", "")
-    self.unit = kwargs.get("unit", "")
-  
-  def serialize(self):
-    return {
-        "id": self.id,
-        "recipe_id": self.recipe_id,
-        "ingredient_id": self.ingredient_id,
-        "quantity": self.quantity,
-        "unit": self.unit,
-        "ingredient_name": self.ingredient.name if self.ingredient else None
     }
