@@ -1,7 +1,7 @@
 import json
 from db import db
 from flask import Flask, request 
-from db import User, Post, Recipe, Ingredient 
+from db import User, Story, Event, Recipe, Ingredient 
 from datetime import datetime
 
 app = Flask(__name__)
@@ -64,12 +64,12 @@ def get_user(user_id):
     
     return success_response(user.serialize())
 
-# -- POST ROUTES -------------------------------------------------------
+# -- STORY ROUTES -------------------------------------------------------
 
-@app.route("/users/<int:user_id>/posts/", methods=["POST"])
-def create_post(user_id):
+@app.route("/users/<int:user_id>/stories/", methods=["POST"])
+def create_story(user_id):
     """ 
-    Endpoint for creating a post 
+    Endpoint for creating a story 
     """
     # Check if user exists
     user = User.query.filter_by(id=user_id).first()
@@ -78,8 +78,8 @@ def create_post(user_id):
 
     body = json.loads(request.data)
 
-    # Create new post 
-    new_post = Post(
+    # Create new story 
+    new_story = Story(
         user_id = user_id,
         recipe_id = body.get("recipe_id"),
         image_url = body.get("image_url"),
@@ -89,89 +89,89 @@ def create_post(user_id):
     )
 
     # Add and commit to database 
-    db.session.add(new_post)
+    db.session.add(new_story)
     db.session.commit()
 
-    return success_response(new_post.serialize(), 201)
+    return success_response(new_story.serialize(), 201)
 
-@app.route("/users/<int:user_id>/posts/")
-def get_all_posts(user_id): 
+@app.route("/users/<int:user_id>/stories/")
+def get_all_stories(user_id): 
     """
-    Endpoint for getting all posts for a user 
+    Endpoint for getting all stories for a user 
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
     if user is None:
         return failure_response("User not found!")
 
-    # Retrieve all posts for a user 
-    posts = Post.query.filter_by(user_id=user_id).all()
+    # Retrieve all stories for a user 
+    stories = Story.query.filter_by(user_id=user_id).all()
 
-    return success_response({"posts": [post.serialize() for post in posts]})
+    return success_response({"stories": [story.serialize() for story in stories]})
 
-@app.route("/users/<int:user_id>/posts/<int:post_id>/")
-def get_post(user_id, post_id): 
+@app.route("/users/<int:user_id>/stories/<int:story_id>/")
+def get_story(user_id, story_id): 
     """
-    Endpoint for getting a specififc post for a user by id
+    Endpoint for getting a specififc story for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
     if user is None:
         return failure_response("User not found!")
     
-    # Retrieve specific post
-    post = Post.query.filter_by(id=post_id, user_id=user_id).first()
+    # Retrieve specific story
+    story = Story.query.filter_by(id=story_id, user_id=user_id).first()
 
-    # Check if post exists for a given user
-    if post is None:
-        return failure_response("Post not found for this user!")
+    # Check if story exists for a given user
+    if story is None:
+        return failure_response("Story not found for this user!")
 
-    return success_response(post.serialize())
+    return success_response(story.serialize())
 
-@app.route("/users/<int:user_id>/posts/<int:post_id>/", methods = ["DELETE"])
-def delete_post(user_id, post_id): 
+@app.route("/users/<int:user_id>/stories/<int:story_id>/", methods = ["DELETE"])
+def delete_story(user_id, story_id): 
     """
-    Endpoint for deleting a specififc post for a user by id
+    Endpoint for deleting a specififc story for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
     if user is None:
         return failure_response("User not found!")
 
-    # Check if post exists for a given user
-    post = Post.query.filter_by(id=post_id, user_id=user_id).first()
-    if post is None:
-        return failure_response("Post not found for this user!")
+    # Check if story exists for a given user
+    story = Story.query.filter_by(id=story_id, user_id=user_id).first()
+    if story is None:
+        return failure_response("Story not found for this user!")
     
-    # Delete post
-    db.session.delete(post)
+    # Delete story
+    db.session.delete(story)
     db.session.commit()
-    return success_response(post.serialize())
+    return success_response(story.serialize())
 
-@app.route("/users/<int:user_id>/posts/<int:post_id>/", methods = ["POST"])
-def update_post(user_id, post_id): 
+@app.route("/users/<int:user_id>/stories/<int:story_id>/", methods = ["POST"])
+def update_story(user_id, story_id): 
     """
-    Endpoint updating specififc post for a user by id
+    Endpoint updating specififc story for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
     if user is None:
         return failure_response("User not found!")
 
-    # Check if post exists for a given user
-    post = Post.query.filter_by(id=post_id, user_id=user_id).first()
-    if post is None:
-        return failure_response("Post not found for this user!")
+    # Check if story exists for a given user
+    story = Story.query.filter_by(id=story_id, user_id=user_id).first()
+    if story is None:
+        return failure_response("Story not found for this user!")
     
     # Update fields 
     body = json.loads(request.data)
-    post.recipe_id = body.get("recipe_id")
-    post.image_url = body.get("image_url")
-    post.title = body.get("title")
-    post.caption = body.get("caption")
+    story.recipe_id = body.get("recipe_id")
+    story.image_url = body.get("image_url")
+    story.title = body.get("title")
+    story.caption = body.get("caption")
 
     db.session.commit()
-    return success_response(post.serialize())
+    return success_response(story.serialize())
 
 # -- RECIPE ROUTES -------------------------------------------------------
 @app.route("/users/<int:user_id>/recipes")
@@ -223,13 +223,13 @@ def delete_ingredient(user_id, ingredient_id):
 
     # Check if ingredient exists for a given user
     ingredient = Ingredient.query.filter_by(id=ingredient_id, user_id=user_id).first()
-    if post is None:
-        return failure_response("Post not found for this user!")
+    if ingredient is None:
+        return failure_response("Ingredient not found for this user!")
     
-    # Delete post
-    db.session.delete(post)
+    # Delete ingredient
+    db.session.delete(ingredient)
     db.session.commit()
-    return success_response(post.serialize())
+    return success_response(ingredient.serialize())
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
