@@ -1,7 +1,7 @@
 import json
 from db import db
 from flask import Flask, request 
-from db import User, Post
+from db import User, Post, Recipe, Ingredient 
 from datetime import datetime
 
 app = Flask(__name__)
@@ -68,7 +68,7 @@ def get_user(user_id):
 @app.route("/users/<int:user_id>/posts/", methods=["POST"])
 def create_post(user_id):
     """ 
-    Endpoint for creating a post for a user by user id
+    Endpoint for creating a post 
     """
     # Check if user exists
     user = User.query.filter_by(id=user_id).first()
@@ -96,7 +96,7 @@ def create_post(user_id):
 @app.route("/users/<int:user_id>/posts/")
 def get_all_posts(user_id): 
     """
-    Get all posts for a user by user id 
+    Endpoint for getting all posts for a user 
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
@@ -111,7 +111,7 @@ def get_all_posts(user_id):
 @app.route("/users/<int:user_id>/posts/<int:post_id>/")
 def get_post(user_id, post_id): 
     """
-    Get specififc post for a user by post id and user id
+    Endpoint for getting a specififc post for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
@@ -130,7 +130,7 @@ def get_post(user_id, post_id):
 @app.route("/users/<int:user_id>/posts/<int:post_id>/", methods = ["DELETE"])
 def delete_post(user_id, post_id): 
     """
-    Delete specififc post for a user by post id and user id
+    Endpoint for deleting a specififc post for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
@@ -150,7 +150,7 @@ def delete_post(user_id, post_id):
 @app.route("/users/<int:user_id>/posts/<int:post_id>/", methods = ["POST"])
 def update_post(user_id, post_id): 
     """
-    Update specififc post for a user by post id and user id
+    Endpoint updating specififc post for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
@@ -169,6 +169,64 @@ def update_post(user_id, post_id):
     post.title = body.get("title")
     post.caption = body.get("caption")
 
+    db.session.commit()
+    return success_response(post.serialize())
+
+# -- RECIPE ROUTES -------------------------------------------------------
+@app.route("/users/<int:user_id>/recipes")
+
+# -- INGREDIENT ROUTES ---------------------------------------------------
+@app.route("/users/<int:user_id>/ingredients/", methods=["POST"])
+def create_ingredient(user_id):
+    """
+    Endpoint for creating an ingredient 
+    """
+    body = json.loads(request.data)
+
+    # Check if user exists
+    user = User.query.filter_by(id=user_id)
+    if user is None:
+        return failure_response("User not found!")
+    
+    new_ingredient = Ingredient(
+        name = body.get("name")
+    )
+
+    # Add and commit to database 
+    db.session.add(new_ingredient)
+    db.session.commit()
+
+    return success_response(new_ingredient.serialize(), 201)
+
+@app.route("/users/<int:user_id>/ingredients/")
+def get_all_ingredients(user_id):
+    """
+    Endpoint for getting all ingredients for a user
+    """
+
+
+@app.route("/users/<int:user_id>/ingredients/")
+def get_ingredient(user_id):
+    """
+    Endpoint for getting all ingredients 
+    """
+
+@app.route("/users/<int:user_id>/ingredients/<int:ingredient_id>/", methods=["DELETE"])
+def delete_ingredient(user_id, ingredient_id):
+    """
+    """
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Check if ingredient exists for a given user
+    ingredient = Ingredient.query.filter_by(id=ingredient_id, user_id=user_id).first()
+    if post is None:
+        return failure_response("Post not found for this user!")
+    
+    # Delete post
+    db.session.delete(post)
     db.session.commit()
     return success_response(post.serialize())
 
