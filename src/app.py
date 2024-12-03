@@ -37,6 +37,7 @@ def create_user():
     Endpoint for creating a user
     """
     body = json.loads(request.data)
+    
 
     # Create new user 
     new_user = User(

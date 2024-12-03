@@ -13,8 +13,11 @@ class User(db.Model):
   username = db.Column(db.String, nullable=False)
   email = db.Column(db.String, nullable=False)
   password = db.Column(db.String, nullable=False)
-  posts = db.relationship("Post", cascade="delete")
   recipes = db.relationship("Recipe", cascade="delete")
+
+  events = db.relationship("Post", cascade="delete")
+
+  stories = db.relationship("Post", cascade="delete")
   
   
   def __init__(self, **kwargs):
@@ -36,14 +39,14 @@ class User(db.Model):
     }
 
 
-class Post(db.Model): 
+class Story(db.Model): 
   """ 
-  Post Model
+  Story Model
   """
-  __tablename__ = "posts"
+  __tablename__ = "stories"
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-  recipe_id = db.Column(db.Integer, db.ForeignKey("recipes.id"), nullable=True)
+  user = db.relationship("User", back_populates="stories", nullable=False)
   image_url = db.Column(db.String, nullable=False)
   title = db.Column(db.String, nullable=False)
   caption = db.Column(db.String, nullable=True)
@@ -54,11 +57,11 @@ class Post(db.Model):
     Initialize Post object/entry
     """
     self.user_id = kwargs.get("user_id", "")
-    self.recipe_id = kwargs.get("recipe_id")
+    self.user = kwargs.get("user", "")
     self.image_url = kwargs.get("image_url", "")
     self.title = kwargs.get("title", "")
-    self.caption = kwargs.get("caption", "")
-    self.created_at = kwargs.get("created_at")
+    self.caption = kwargs.get("caption")
+    self.created_at = kwargs.get("created_at", "")
 
   def serialize(self):
     """ 
@@ -114,7 +117,7 @@ class Recipe(db.Model):
     self.instructions = kwargs.get("instructions", "")
     self.user_id = kwargs.get("user_id", "")
     self.post_id = kwargs.get("post_id", "")
-    self.rating = kwargs.get("rating", None)
+    self.rating = kwargs.get("rating")
     self.time = kwargs.get("time", 0)
     self.servings = kwargs.get("servings", 1)
     self.image_url = kwargs.get("image_url", "")
