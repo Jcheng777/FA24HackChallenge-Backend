@@ -2,7 +2,22 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# implement database model classes
+# association tables
+
+recipe_ingredient_association_table = db.Table(
+  """ 
+  Association table between Recipes and Ingredients
+  """
+  "recipe_ingredient_association",
+  db.Model.metadata,
+  db.Column("recipe_id", db.Integer, db.ForeignKey("recipes.id")),
+  db.Column("ingredient_id", db.Integer, db.ForeignKey("ingredients.id")),
+  db.Column("quantity", db.String, nullable=False),
+  db.Column("unit", db.String, nullable=False)
+)
+
+
+# database model classes
 
 class User(db.Model): 
   """ 
@@ -13,11 +28,9 @@ class User(db.Model):
   username = db.Column(db.String, nullable=False)
   email = db.Column(db.String, nullable=False)
   password = db.Column(db.String, nullable=False)
-  recipes = db.relationship("Recipe", cascade="delete")
-
-  events = db.relationship("Post", cascade="delete")
-
-  stories = db.relationship("Post", cascade="delete")
+  recipes = db.relationship("Recipe", backpopulates="user", cascade="delete")
+  stories = db.relationship("Story", backpopulates="user", cascade="delete")
+  events = db.relationship("Event", backpopulates="user", cascade="delete")
   
   
   def __init__(self, **kwargs):
@@ -35,7 +48,9 @@ class User(db.Model):
     return {
       "id": self.id,
       "username": self.username,
-      "posts": [p.serialize() for p in self.posts]
+      "recipes": [r.simple_serialize() for r in self.recipes],
+      "stories": [s.simple_serialize() for s in self.stories],
+      "events": [e.simple_serialize() for e in self.events]
     }
 
 
@@ -49,28 +64,39 @@ class Story(db.Model):
   user = db.relationship("User", back_populates="stories", nullable=False)
   image_url = db.Column(db.String, nullable=False)
   title = db.Column(db.String, nullable=False)
-  caption = db.Column(db.String, nullable=True)
+  caption = db.Column(db.String, nullable=False)
   created_at = db.Column(db.DateTime, nullable=False)
 
   def __init__(self, **kwargs):
     """
-    Initialize Post object/entry
+    Initialize Story object/entry
     """
     self.user_id = kwargs.get("user_id", "")
     self.user = kwargs.get("user", "")
     self.image_url = kwargs.get("image_url", "")
     self.title = kwargs.get("title", "")
-    self.caption = kwargs.get("caption")
+    self.caption = kwargs.get("caption", "")
     self.created_at = kwargs.get("created_at", "")
 
   def serialize(self):
     """ 
-    Serialize a post object
+    Serialize a story object
     """
     return {
       "id": self.id,
-      "user_id": self.user_id,
-      "recipe_id": self.recipe_id,
+      "user": self.user,
+      "image_url": self.image_url,
+      "title": self.title,
+      "caption": self.caption,
+      "created_at": self.created_at.isoformat()
+    }
+  
+  def simple_serialize(self):
+    """
+    Serialize a story object without user
+    """
+    return {
+      "id": self.id,
       "image_url": self.image_url,
       "title": self.title,
       "caption": self.caption,
@@ -78,17 +104,66 @@ class Story(db.Model):
     }
 
 
-recipe_ingredient_association_table = db.Table(
+class Event(db.Model): 
   """ 
-  Association table between Recipes and Ingredients
+  Event Model
   """
-  "recipe_ingredient_association",
-  db.Model.metadata,
-  db.Column("recipe_id", db.Integer, db.ForeignKey("recipes.id")),
-  db.Column("ingredient_id", db.Integer, db.ForeignKey("ingredients.id")),
-  db.Column("quantity", db.String, nullable=False),
-  db.Column("unit", db.String, nullable=False)
-)
+  __tablename__ = "events"
+  id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+  user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+  user = db.relationship("User", back_populates="events", nullable=False)
+  image_url = db.Column(db.String, nullable=False)
+  title = db.Column(db.String, nullable=False)
+  caption = db.Column(db.String, nullable=False)
+  number_going = db.Column(db.Integer, nullable=False)
+  time = db.Column(db.DateTime, nullable=False)
+  location = db.Column(db.String, nullable=False)
+  created_at = db.Column(db.DateTime, nullable=False)
+
+  def __init__(self, **kwargs):
+    """
+    Initialize Event object/entry
+    """
+    self.user_id = kwargs.get("user_id", "")
+    self.user = kwargs.get("user", "")
+    self.image_url = kwargs.get("image_url", "")
+    self.title = kwargs.get("title", "")
+    self.caption = kwargs.get("caption", "")
+    self.number_going = kwargs.get("number_going", 0)
+    self.time = kwargs.get("time", "")
+    self.location = kwargs.get("location", "")
+    self.created_at = kwargs.get("created_at", "")
+
+  def serialize(self):
+    """ 
+    Serialize an event object
+    """
+    return {
+      "id": self.id,
+      "user": self.user,
+      "image_url": self.image_url,
+      "title": self.title,
+      "caption": self.caption,
+      "number_going": self.number_going,
+      "time": self.time.isoformat(),
+      "location": self.location,
+      "created_at": self.created_at.isoformat()
+    }
+  
+  def simple_serialize(self):
+    """
+    Serialize an event object without user
+    """
+    return {
+      "id": self.id,
+      "image_url": self.image_url,
+      "title": self.title,
+      "caption": self.caption,
+      "number_going": self.number_going,
+      "time": self.time.isoformat(),
+      "location": self.location,
+      "created_at": self.created_at.isoformat()
+    }
 
 
 class Recipe(db.Model): 
@@ -101,12 +176,13 @@ class Recipe(db.Model):
   description = db.Column(db.String, nullable=False) 
   instructions = db.Column(db.String, nullable=False)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-  post_id = db.Column(db.Integer, db.ForeignKey("posts.id"), nullable=False)
+  user = db.relationship("User", back_populates="recipes", nullable=False)
   rating = db.Column(db.Integer, nullable=True)
   time = db.Column(db.Integer, nullable=False)
   servings = db.Column(db.Integer, nullable=False)
   image_url = db.Column(db.String, nullable=False)
   ingredients = db.relationship("Ingredient", secondary=recipe_ingredient_association_table, back_populates = "recipes")
+  created_at = db.Column(db.DateTime, nullable=False)
 
   def __init__(self, **kwargs):
     """
@@ -116,11 +192,12 @@ class Recipe(db.Model):
     self.description = kwargs.get("description", "")
     self.instructions = kwargs.get("instructions", "")
     self.user_id = kwargs.get("user_id", "")
-    self.post_id = kwargs.get("post_id", "")
+    self.user = kwargs.get("user", "")
     self.rating = kwargs.get("rating")
     self.time = kwargs.get("time", 0)
     self.servings = kwargs.get("servings", 1)
     self.image_url = kwargs.get("image_url", "")
+    self.created_at = kwargs.get("created_at", "")
 
   
   def serialize(self):
@@ -132,12 +209,30 @@ class Recipe(db.Model):
       "title": self.title,
       "description": self.description,
       "instructions": self.instructions,
-      "user_id": self.user_id,
+      "user": self.user,
       "rating": self.rating,
       "time": self.time,
       "servings": self.servings,
       "image_url": self.image_url,
-      "ingredients": [i.serialize() for i in self.ingredients]
+      "ingredients": [i.serialize() for i in self.ingredients],
+      "created_at": self.created_at.isoformat()
+    }
+  
+  def simple_serialize(self):
+    """ 
+    Serialize a recipe object without user
+    """
+    return {
+      "id": self.id,
+      "title": self.title,
+      "description": self.description,
+      "instructions": self.instructions,
+      "rating": self.rating,
+      "time": self.time,
+      "servings": self.servings,
+      "image_url": self.image_url,
+      "ingredients": [i.serialize() for i in self.ingredients],
+      "created_at": self.created_at.isoformat()
     }
 
 
@@ -148,6 +243,7 @@ class Ingredient(db.Model):
   __tablename__ = "ingredients"
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   name = db.Column(db.String, nullable=False)
+  image_url = db.Column(db.String, nullable=False)
   recipes = db.relationship("Recipe", secondary=recipe_ingredient_association_table, back_populates="ingredients")
 
   # Relationship to RecipeIngredientAssociation
@@ -160,12 +256,14 @@ class Ingredient(db.Model):
     Initialize Ingredient object/entry
     """
     self.name = kwargs.get("name", "")
-  
-  def serialize(self):
+    self.image_url = kwargs.get("image_url", "")
+
+  def simple_serialize(self):
     """ 
-    Serialize a recipe object
+    Serialize an ingredient object without recipes
     """
     return {
       "id": self.id,
-      "name": self.name
+      "name": self.name,
+      "image_url": self.image_url
     }
