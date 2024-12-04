@@ -4,10 +4,10 @@ db = SQLAlchemy()
 
 # association tables
 
+""" 
+Association table between Recipes and Ingredients
+"""
 recipe_ingredient_association_table = db.Table(
-  """ 
-  Association table between Recipes and Ingredients
-  """
   "recipe_ingredient_association",
   db.Model.metadata,
   db.Column("recipe_id", db.Integer, db.ForeignKey("recipes.id")),
@@ -28,9 +28,10 @@ class User(db.Model):
   username = db.Column(db.String, nullable=False)
   email = db.Column(db.String, nullable=False)
   password = db.Column(db.String, nullable=False)
-  recipes = db.relationship("Recipe", backpopulates="user", cascade="delete")
-  stories = db.relationship("Story", backpopulates="user", cascade="delete")
-  events = db.relationship("Event", backpopulates="user", cascade="delete")
+  recipes = db.relationship("Recipe", cascade="delete")
+  stories = db.relationship("Story", cascade="delete")
+  events = db.relationship("Event", cascade="delete")
+  ingredients = db.relationship("Ingredient", cascade="delete")
   
   
   def __init__(self, **kwargs):
@@ -50,7 +51,8 @@ class User(db.Model):
       "username": self.username,
       "recipes": [r.simple_serialize() for r in self.recipes],
       "stories": [s.simple_serialize() for s in self.stories],
-      "events": [e.simple_serialize() for e in self.events]
+      "events": [e.simple_serialize() for e in self.events],
+      "ingredients": [i.serialize() for i in self.ingredients]
     }
 
 
@@ -61,7 +63,7 @@ class Story(db.Model):
   __tablename__ = "stories"
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-  user = db.relationship("User", back_populates="stories", nullable=False)
+  # user = db.relationship("User", back_populates="stories")
   image_url = db.Column(db.String, nullable=False)
   title = db.Column(db.String, nullable=False)
   caption = db.Column(db.String, nullable=False)
@@ -72,7 +74,7 @@ class Story(db.Model):
     Initialize Story object/entry
     """
     self.user_id = kwargs.get("user_id", "")
-    self.user = kwargs.get("user", "")
+    # self.user = kwargs.get("user")
     self.image_url = kwargs.get("image_url", "")
     self.title = kwargs.get("title", "")
     self.caption = kwargs.get("caption", "")
@@ -84,7 +86,7 @@ class Story(db.Model):
     """
     return {
       "id": self.id,
-      "user": self.user,
+      # "user": self.user,
       "image_url": self.image_url,
       "title": self.title,
       "caption": self.caption,
@@ -111,7 +113,7 @@ class Event(db.Model):
   __tablename__ = "events"
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-  user = db.relationship("User", back_populates="events", nullable=False)
+  # user = db.relationship("User", back_populates="events")
   image_url = db.Column(db.String, nullable=False)
   title = db.Column(db.String, nullable=False)
   caption = db.Column(db.String, nullable=False)
@@ -125,7 +127,7 @@ class Event(db.Model):
     Initialize Event object/entry
     """
     self.user_id = kwargs.get("user_id", "")
-    self.user = kwargs.get("user", "")
+    # self.user = kwargs.get("user")
     self.image_url = kwargs.get("image_url", "")
     self.title = kwargs.get("title", "")
     self.caption = kwargs.get("caption", "")
@@ -140,7 +142,7 @@ class Event(db.Model):
     """
     return {
       "id": self.id,
-      "user": self.user,
+      # "user": self.user,
       "image_url": self.image_url,
       "title": self.title,
       "caption": self.caption,
@@ -176,11 +178,11 @@ class Recipe(db.Model):
   description = db.Column(db.String, nullable=False) 
   instructions = db.Column(db.String, nullable=False)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-  user = db.relationship("User", back_populates="recipes", nullable=False)
-  rating = db.Column(db.Integer, nullable=True)
+  # user = db.relationship("User", back_populates="recipes")
+  # rating = db.Column(db.Integer, nullable=True)
   time = db.Column(db.Integer, nullable=False)
   servings = db.Column(db.Integer, nullable=False)
-  image_url = db.Column(db.String, nullable=False)
+  image_url = db.Column(db.String, nullable=True)
   ingredients = db.relationship("Ingredient", secondary=recipe_ingredient_association_table, back_populates = "recipes")
   created_at = db.Column(db.DateTime, nullable=False)
 
@@ -192,8 +194,8 @@ class Recipe(db.Model):
     self.description = kwargs.get("description", "")
     self.instructions = kwargs.get("instructions", "")
     self.user_id = kwargs.get("user_id", "")
-    self.user = kwargs.get("user", "")
-    self.rating = kwargs.get("rating")
+    # self.user = kwargs.get("user")
+    # self.rating = kwargs.get("rating")
     self.time = kwargs.get("time", 0)
     self.servings = kwargs.get("servings", 1)
     self.image_url = kwargs.get("image_url", "")
@@ -209,8 +211,8 @@ class Recipe(db.Model):
       "title": self.title,
       "description": self.description,
       "instructions": self.instructions,
-      "user": self.user,
-      "rating": self.rating,
+      # "user": self.user,
+      # "rating": self.rating,
       "time": self.time,
       "servings": self.servings,
       "image_url": self.image_url,
@@ -227,7 +229,7 @@ class Recipe(db.Model):
       "title": self.title,
       "description": self.description,
       "instructions": self.instructions,
-      "rating": self.rating,
+      # "rating": self.rating,
       "time": self.time,
       "servings": self.servings,
       "image_url": self.image_url,
@@ -245,6 +247,8 @@ class Ingredient(db.Model):
   name = db.Column(db.String, nullable=False)
   image_url = db.Column(db.String, nullable=False)
   recipes = db.relationship("Recipe", secondary=recipe_ingredient_association_table, back_populates="ingredients")
+  user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
 
   # Relationship to RecipeIngredientAssociation
   # ingredient_recipes = db.relationship(
@@ -255,6 +259,7 @@ class Ingredient(db.Model):
     """
     Initialize Ingredient object/entry
     """
+    self.user_id = kwargs.get("user_id")
     self.name = kwargs.get("name", "")
     self.image_url = kwargs.get("image_url", "")
 
