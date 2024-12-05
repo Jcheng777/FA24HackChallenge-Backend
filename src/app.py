@@ -29,8 +29,7 @@ def failure_response(message, code=404):
 
 # Set up OpenAI API key 
 load_dotenv()
-OpenAI.api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Define schema for recipe
 class Recipe_Gen(BaseModel):
@@ -42,6 +41,10 @@ class Recipe_Gen(BaseModel):
     # rating: int
 
 # -- USER ROUTES -------------------------------------------------------
+
+@app.route("/")
+def base():
+    return "hello world"
 
 @app.route("/users/")
 def get_users():
