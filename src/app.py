@@ -1,5 +1,5 @@
 import json
-from db import db, recipe_ingredient_association_table
+from db import db, user_story_association_table, user_event_association_table, user_recipe_association_table, recipe_ingredient_association_table
 from flask import Flask, request 
 from db import User, Story, Event, Recipe, Ingredient 
 from datetime import datetime
@@ -85,6 +85,60 @@ def get_user(user_id):
     
     return success_response(user.serialize())
 
+@app.route("/users/<int:user_id>/", methods=["DELETE"])
+def delete_user(user_id):
+    """
+    Endpoint for deleting a user by id
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    db.session.delete(user)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/users/<int:user_id>/", methods=["POST"])
+def update_user(user_id):
+    """
+    Endpoint for updating a user by id
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    body = json.loads(request.data)
+    user.username = body.get("username")
+    user.email = body.get("email")
+    user.password = body.get("password")
+
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/users/<int:user_id>/stories/<int:story_id>/save", methods=["POST"])
+def save_story(user_id, story_id):
+    """
+    Endpoint for saving a story for a user
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    #Check if story exists
+    story = Story.query.filter_by(id=story_id).first()
+    if story is None:
+        return failure_response("Story not found!")
+
+    # Add story to user's saved stories
+    insert_statement = user_story_association_table.insert().values(user_id = user_id, story_id = story_id)
+    db.session.execute(insert_statement)
+    user.saved_stories.append(Story.query.filter_by(id=story_id).first())
+    db.session.commit()
+    return success_response(user.serialize())
+
 # -- STORY ROUTES -------------------------------------------------------
 
 @app.route("/users/<int:user_id>/stories/", methods=["POST"])
@@ -132,7 +186,7 @@ def get_all_stories(user_id):
 @app.route("/users/<int:user_id>/stories/<int:story_id>/")
 def get_story(user_id, story_id): 
     """
-    Endpoint for getting a specififc story for a user by id
+    Endpoint for getting a specific story for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
@@ -171,7 +225,7 @@ def delete_story(user_id, story_id):
 @app.route("/users/<int:user_id>/stories/<int:story_id>/", methods = ["POST"])
 def update_story(user_id, story_id): 
     """
-    Endpoint updating specififc story for a user by id
+    Endpoint updating specific story for a user by id
     """
     # Check if user exists 
     user = User.query.filter_by(id=user_id).first()
@@ -193,6 +247,105 @@ def update_story(user_id, story_id):
     return success_response(story.serialize())
 
 # -- EVENT ROUTES -------------------------------------------------------
+
+@app.route("/users/<int:user_id>/events/", methods=["POST"])
+def create_event(user_id):
+    """
+    Endpoint for creating an event
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    body = json.loads(request.data)
+
+    # Create new event 
+    new_event = Event(
+        user_id = user_id,
+        image_url = body.get("image_url"),
+        title = body.get("title"),
+        caption = body.get("caption"),
+        time = body.get("time"),
+        location = body.get("location"),
+        created_at = datetime.now()
+    )
+
+    # Add and commit to database 
+    db.session.add(new_event)
+    db.session.commit()
+
+    return success_response(new_event.serialize(), 201)
+
+@app.route("/users/<int:user_id>/events/")
+def get_all_events(user_id):
+    """
+    Endpoint for getting all events for a user
+    """
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Retrieve all events for a user 
+    events = Event.query.filter_by(user_id=user_id).all()
+    return success_response({"events": [event.serialize() for event in events]})
+
+@app.route("/users/<int:user_id>/events/<int:event_id>")
+def get_event(event_id, user_id):
+    """Endpoint for getting a specific event for a user by id"""
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Check if event exists
+    event = Event.query.filter_by(id=event_id, user_id=user_id).first()
+    if event is None:
+        return failure_response("Event not found!")
+    
+    return success_response(event.serialize())
+
+@app.route("/users/<int:user_id>/events/<int:event_id>/", methods=["DELETE"])
+def delete_event(event_id, user_id):
+    """Endpoint for deleting a specific event for a user by id"""
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Check if event exists
+    event = Event.query.filter_by(id=event_id, user_id=user_id).first()
+    if event is None:
+        return failure_response("Event not found!")
+    
+    db.session.delete(event)
+    db.session.commit()
+    return success_response(event.serialize())
+
+@app.route("/users/<int:user_id>/events/<int:event_id>/", methods=["POST"])
+def update_event(event_id, user_id):
+    """Endpoint for updating a specific event for a user by id"""
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    # Check if event exists
+    event = Event.query.filter_by(id=event_id, user_id=user_id).first()
+    if event is None:
+        return failure_response("Event not found!")
+    
+    body = json.loads(request.data)
+    event.image_url = body.get("image_url")
+    event.title = body.get("title")
+    event.caption = body.get("caption")
+    event.time = body.get("time")
+    event.location = body.get("location")
+
+    db.session.commit()
+    return success_response(event.serialize())
+
 
 # -- RECIPE ROUTES -------------------------------------------------------
 

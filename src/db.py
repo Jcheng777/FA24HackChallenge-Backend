@@ -16,6 +16,40 @@ recipe_ingredient_association_table = db.Table(
   db.Column("unit", db.String, nullable=False)
 )
 
+""" 
+Association table between Users and Recipes
+"""
+user_recipe_association_table = db.Table(
+  "users_recipes_association",
+  db.Model.metadata,
+  db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+  db.Column("recipe_id", db.Integer, db.ForeignKey("recipes.id")),
+  db.UniqueConstraint("user_id", "recipe_id", name="unique_user_recipe")
+)
+
+""" 
+Association table between Users and Events
+"""
+user_event_association_table = db.Table(
+  "users_recipes_association",
+  db.Model.metadata,
+  db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+  db.Column("event_id", db.Integer, db.ForeignKey("events.id")),
+  db.UniqueConstraint("user_id", "event_id", name="unique_user_event")
+)
+
+
+""" 
+Association table between Users and Stories
+"""
+user_story_association_table = db.Table(
+  "users_recipes_association",
+  db.Model.metadata,
+  db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+  db.Column("story_id", db.Integer, db.ForeignKey("stories.id")),
+  db.UniqueConstraint("user_id", "story_id", name="unique_user_story")
+)
+
 
 # database model classes
 
@@ -32,7 +66,10 @@ class User(db.Model):
   stories = db.relationship("Story", cascade="delete")
   events = db.relationship("Event", cascade="delete")
   ingredients = db.relationship("Ingredient", cascade="delete")
-  
+  saved_recipes = db.relationship("Recipe", secondary="users_recipes_association", back_populates="users_saved")
+  saved_stories = db.relationship("Story", secondary="users_stories_association", back_populates="users_saved")
+  saved_events = db.relationship("Event", secondary="users_events_association", back_populates="users_saved")
+
   
   def __init__(self, **kwargs):
     """
@@ -52,7 +89,10 @@ class User(db.Model):
       "recipes": [r.simple_serialize() for r in self.recipes],
       "stories": [s.simple_serialize() for s in self.stories],
       "events": [e.simple_serialize() for e in self.events],
-      "ingredients": [i.serialize() for i in self.ingredients]
+      "ingredients": [i.serialize() for i in self.ingredients],
+      "saved_recipes": [r.simple_serialize() for r in self.saved_recipes],
+      "saved_stories": [s.simple_serialize() for s in self.saved_stories],
+      "saved_events": [e.simple_serialize() for e in self.saved_events]
     }
 
 
@@ -68,6 +108,7 @@ class Story(db.Model):
   title = db.Column(db.String, nullable=False)
   caption = db.Column(db.String, nullable=False)
   created_at = db.Column(db.DateTime, nullable=False)
+  users_saved = db.relationship("User", secondary="users_stories_association", cascade = "delete")
 
   def __init__(self, **kwargs):
     """
@@ -121,6 +162,7 @@ class Event(db.Model):
   time = db.Column(db.DateTime, nullable=False)
   location = db.Column(db.String, nullable=False)
   created_at = db.Column(db.DateTime, nullable=False)
+  users_saved = db.relationship("User", secondary="users_events_association", cascade = "delete")
 
   def __init__(self, **kwargs):
     """
@@ -131,7 +173,7 @@ class Event(db.Model):
     self.image_url = kwargs.get("image_url", "")
     self.title = kwargs.get("title", "")
     self.caption = kwargs.get("caption", "")
-    self.number_going = kwargs.get("number_going", 0)
+    self.number_going = 1
     self.time = kwargs.get("time", "")
     self.location = kwargs.get("location", "")
     self.created_at = kwargs.get("created_at", "")
@@ -185,6 +227,7 @@ class Recipe(db.Model):
   image_url = db.Column(db.String, nullable=True)
   ingredients = db.relationship("Ingredient", secondary=recipe_ingredient_association_table, back_populates = "recipes")
   created_at = db.Column(db.DateTime, nullable=False)
+  users_saved = db.relationship("User", secondary="users_recipes_association", cascade = "delete")
 
   def __init__(self, **kwargs):
     """
