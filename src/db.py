@@ -31,7 +31,7 @@ user_recipe_association_table = db.Table(
 Association table between Users and Events
 """
 user_event_association_table = db.Table(
-  "users_recipes_association",
+  "users_events_association",
   db.Model.metadata,
   db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
   db.Column("event_id", db.Integer, db.ForeignKey("events.id")),
@@ -43,7 +43,7 @@ user_event_association_table = db.Table(
 Association table between Users and Stories
 """
 user_story_association_table = db.Table(
-  "users_recipes_association",
+  "users_stories_association",
   db.Model.metadata,
   db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
   db.Column("story_id", db.Integer, db.ForeignKey("stories.id")),
