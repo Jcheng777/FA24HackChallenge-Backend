@@ -1,7 +1,7 @@
 import json
 from db import db, user_story_association_table, user_event_association_table, user_recipe_association_table, recipe_ingredient_association_table, user_event_attendance_association_table
 from flask import Flask, request 
-from db import User, Story, Event, Recipe, Ingredient 
+from db import User, Story, Event, Recipe, Ingredient, Asset 
 from datetime import datetime
 from pydantic import BaseModel
 from typing import List
@@ -230,7 +230,25 @@ def unattend_event(user_id, event_id):
     event.number_going -= 1
     return success_response(user.serialize())
 
+# -- ASSET ROUTES ------------------------------------------------------
+
+@app.route("/upload/", methods=["POST"])
+def upload():
+    """
+    Endpoint for uploading an image to AWS given its base 64 form, then
+    storing/returning the URL of that image
+    """
+    body = json.loads(request.data)
+    image_data = body.get("image_data")
+
+    if image_data is None:
+        return failure_response("No base64 image found")
     
+    asset = Asset(image_data = image_data)
+    db.session.add(asset)
+    db.session.commit()
+
+    return success_response(asset.serialize(), 201)
 
 # -- STORY ROUTES -------------------------------------------------------
 
@@ -379,7 +397,8 @@ def create_event(user_id):
         image_url = body.get("image_url"),
         title = body.get("title"),
         caption = body.get("caption"),
-        time = datetime.fromisoformat(body.get("time")),
+        number_going = body.get("number_going"),
+        # time = datetime.fromisoformat(body.get("time")),
         location = body.get("location"),
         created_at = datetime.now()
     )

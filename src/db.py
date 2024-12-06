@@ -1,6 +1,26 @@
 from flask_sqlalchemy import SQLAlchemy
+import base64
+import boto3
+import datetime 
+import io 
+from io import BytesIO
+from mimetypes import guess_type, guess_extension
+import os 
+from PIL import Image 
+import random
+import re 
+import string
+from dotenv import load_dotenv
 
 db = SQLAlchemy()
+
+load_dotenv()
+
+EXTENSIONS = ["png", "gif", "jpg", "jpeg"]
+BASE_DIR = os.getcwd()
+S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
+
+S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
 
 # association tables
 
@@ -73,6 +93,101 @@ user_event_attendance_association_table = db.Table(
 
 
 # database model classes
+
+class Asset(db.Model):
+  """
+  Asset Model
+  """
+  __tablename__ = "asset"
+  id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+  base_url = db.Column(db.String, nullable=False)
+  salt = db.Column(db.String, nullable=False)
+  extension = db.Column(db.String, nullable=False)
+  width = db.Column(db.Integer, nullable=False)
+  height = db.Column(db.Integer, nullable=False)
+  created_at = db.Column(db.DateTime, nullable=False)
+
+  def __init__(self, **kwargs):
+    """
+    Initializes an Asset object
+    """
+    self.create(kwargs.get("image_data"))
+
+  def serialize(self):
+    """ 
+    Serializes an Asset Object
+    """
+    return {
+      "id": self.id,
+      "url": f"{self.base_url}/{self.salt}.{self.extension}",
+      "created_at": str(self.created_at)
+    }
+  
+  def create(self, image_data):
+    """
+    Given an image in base64 encoding, does the following:
+    1. Rejects th image if it is not a supported filename
+    2. Generate a random string for the image filename
+    3. Decodes the image and attepts to upload to AWS
+    """
+
+    try:
+      # Ensure image_data is properly passed
+      if not image_data:
+        raise ValueError("No image data provided")
+
+      ext = guess_extension(guess_type(image_data)[0])[1:]
+
+      if ext not in EXTENSIONS:
+        raise Exception(f"Exception {ext} is not valid!")
+      
+      salt = "".join(
+        random.SystemRandom().choice(
+          string.ascii_uppercase + string.digits
+        )
+        for _ in range(16)
+      )
+
+      img_str = re.sub("^data:image/.+;base64,", "", image_data)
+      img_data = base64.b64decode(img_str)
+      img = Image.open(BytesIO(img_data))
+
+      self.base_url = S3_BASE_URL
+      self.salt = salt
+      self.extension = ext 
+      self.width = img.width 
+      self.height = img.height
+      self.created_at = datetime.datetime.now()
+ 
+      img_filename = f"{self.salt}.{self.extension}"
+
+      self.upload(img, img_filename)
+
+    except Exception as e:
+      print(f"Error when creating image: {e}")
+    
+
+  def upload(self, img, img_filename):
+    """
+    Attempts to upload the image into the specified s3 bucket
+    """
+    try:
+      # save image into temporary
+      img_temp_loc = f"{BASE_DIR}/{img_filename}"
+      img.save(img_temp_loc)
+
+      #upload image into S3 bucket
+      s3_client = boto3.client("s3")
+      s3_client.upload_file(img_temp_loc, S3_BUCKET_NAME, img_filename)
+
+      s3_resource = boto3.resource("s3")
+      object_acl = s3_resource.ObjectAcl(S3_BUCKET_NAME, img_filename)
+      object_acl.put(ACL="public-read")
+
+      # remove image from temp location 
+      os.remove(img_temp_loc)
+    except Exception as e:
+      print(f"Error when uploading an image: {e}") 
 
 class User(db.Model): 
   """ 
@@ -179,7 +294,7 @@ class Event(db.Model):
   title = db.Column(db.String, nullable=False)
   caption = db.Column(db.String, nullable=False)
   number_going = db.Column(db.Integer, nullable=False)
-  time = db.Column(db.DateTime, nullable=False)
+  # time = db.Column(db.DateTime, nullable=True)
   location = db.Column(db.String, nullable=False)
   created_at = db.Column(db.DateTime, nullable=False)
   users_saved = db.relationship("User", secondary="users_events_association", cascade = "delete")
@@ -194,8 +309,8 @@ class Event(db.Model):
     self.image_url = kwargs.get("image_url", "")
     self.title = kwargs.get("title", "")
     self.caption = kwargs.get("caption", "")
-    self.number_going = 0
-    self.time = kwargs.get("time", "")
+    self.number_going = kwargs.get("number_going", 0)
+    # self.time = kwargs.get("time", "")
     self.location = kwargs.get("location", "")
     self.created_at = kwargs.get("created_at", "")
 
@@ -207,10 +322,11 @@ class Event(db.Model):
       "id": self.id,
       # "user": self.user,
       "image_url": self.image_url,
+      "user_id": self.user_id,
       "title": self.title,
       "caption": self.caption,
       "number_going": self.number_going,
-      "time": self.time.isoformat(),
+      # "time": self.time.isoformat(),
       "location": self.location,
       "created_at": self.created_at.isoformat()
     }
@@ -225,7 +341,7 @@ class Event(db.Model):
       "title": self.title,
       "caption": self.caption,
       "number_going": self.number_going,
-      "time": self.time.isoformat(),
+      # "time": self.time.isoformat(),
       "location": self.location,
       "created_at": self.created_at.isoformat()
     }
