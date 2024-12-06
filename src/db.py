@@ -108,7 +108,7 @@ class User(db.Model):
       "recipes": [r.simple_serialize() for r in self.recipes],
       "stories": [s.simple_serialize() for s in self.stories],
       "events": [e.simple_serialize() for e in self.events],
-      "ingredients": [i.serialize() for i in self.ingredients],
+      "ingredients": [i.simple_serialize() for i in self.ingredients],
       "saved_recipes": [r.simple_serialize() for r in self.saved_recipes],
       "saved_stories": [s.simple_serialize() for s in self.saved_stories],
       "saved_events": [e.simple_serialize() for e in self.saved_events],
@@ -242,13 +242,14 @@ class Recipe(db.Model):
   instructions = db.Column(db.String, nullable=False)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
   # user = db.relationship("User", back_populates="recipes")
-  # rating = db.Column(db.Integer, nullable=True)
+  rating = db.Column(db.Integer, nullable=True)
   time = db.Column(db.Integer, nullable=False)
   servings = db.Column(db.Integer, nullable=False)
   image_url = db.Column(db.String, nullable=True)
   ingredients = db.relationship("Ingredient", secondary=recipe_ingredient_association_table, back_populates = "recipes")
   created_at = db.Column(db.DateTime, nullable=False)
   users_saved = db.relationship("User", secondary="users_recipes_association", cascade = "delete")
+  ai_generated = db.Column(db.Boolean, nullable=False)
 
   def __init__(self, **kwargs):
     """
@@ -259,11 +260,12 @@ class Recipe(db.Model):
     self.instructions = kwargs.get("instructions", "")
     self.user_id = kwargs.get("user_id", "")
     # self.user = kwargs.get("user")
-    # self.rating = kwargs.get("rating")
+    self.rating = kwargs.get("rating")
     self.time = kwargs.get("time", 0)
     self.servings = kwargs.get("servings", 1)
     self.image_url = kwargs.get("image_url", "")
     self.created_at = kwargs.get("created_at", "")
+    self.ai_generated = kwargs.get("ai_generated", False)
 
   
   def serialize(self):
@@ -276,12 +278,13 @@ class Recipe(db.Model):
       "description": self.description,
       "instructions": self.instructions,
       # "user": self.user,
-      # "rating": self.rating,
+      "rating": self.rating,
       "time": self.time,
       "servings": self.servings,
       "image_url": self.image_url,
-      "ingredients": [i.serialize() for i in self.ingredients],
-      "created_at": self.created_at.isoformat()
+      "ingredients": [i.simple_serialize() for i in self.ingredients],
+      "created_at": self.created_at.isoformat(),
+      "ai_generated": self.ai_generated
     }
   
   def simple_serialize(self):
@@ -293,11 +296,11 @@ class Recipe(db.Model):
       "title": self.title,
       "description": self.description,
       "instructions": self.instructions,
-      # "rating": self.rating,
+      "rating": self.rating,
       "time": self.time,
       "servings": self.servings,
       "image_url": self.image_url,
-      "ingredients": [i.serialize() for i in self.ingredients],
+      "ingredients": [i.simple_serialize() for i in self.ingredients],
       "created_at": self.created_at.isoformat()
     }
 
@@ -323,7 +326,7 @@ class Ingredient(db.Model):
     """
     Initialize Ingredient object/entry
     """
-    self.user_id = kwargs.get("user_id")
+    # self.user_id = kwargs.get("user_id")
     self.name = kwargs.get("name", "")
     self.image_url = kwargs.get("image_url", "")
 

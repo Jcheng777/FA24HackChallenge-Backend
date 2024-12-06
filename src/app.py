@@ -38,7 +38,7 @@ class Recipe_Gen(BaseModel):
     instructions: str
     servings: int
     time: int # Time in minutes
-    # rating: int
+    rating: int
 
 # -- USER ROUTES -------------------------------------------------------
 
@@ -261,8 +261,18 @@ def create_story(user_id):
 
     return success_response(new_story.serialize(), 201)
 
+@app.route("/stories/")
+def get_all_stories(): 
+    """
+    Endpoint for getting all stories for a user 
+    """
+    # Retrieve all stories for a user 
+    stories = Story.query.all()
+
+    return success_response({"stories": [story.serialize() for story in stories]})
+
 @app.route("/users/<int:user_id>/stories/")
-def get_all_stories(user_id): 
+def get_stories(user_id): 
     """
     Endpoint for getting all stories for a user 
     """
@@ -341,6 +351,16 @@ def update_story(user_id, story_id):
 
 # -- EVENT ROUTES -------------------------------------------------------
 
+@app.route("/events/")
+def get_all_events(): 
+    """
+    Endpoint for getting all events for a user 
+    """
+    # Retrieve all events for a user 
+    events = Event.query.all()
+
+    return success_response({"events": [event.serialize() for event in events]})
+
 @app.route("/users/<int:user_id>/events/", methods=["POST"])
 def create_event(user_id):
     """
@@ -371,7 +391,7 @@ def create_event(user_id):
     return success_response(new_event.serialize(), 201)
 
 @app.route("/users/<int:user_id>/events/")
-def get_all_events(user_id):
+def get_events(user_id):
     """
     Endpoint for getting all events for a user
     """
@@ -455,6 +475,7 @@ def generate_recipe_with_schema(ingredient_names: List[str]) -> Recipe_Gen:
             - Step-by-step instructions
             - Number of servings (as an integer)
             - Estimated preparation time in minutes 
+            - Rating (from 1-10 the level of difficulty of making the recipe)
             """
         
         # Call the OpenAI API with the structured output format
@@ -485,6 +506,239 @@ def generate_recipe_with_schema(ingredient_names: List[str]) -> Recipe_Gen:
         print(f"Error generating recipe: {e}")
         return None
 
+@app.route("/users/<int:user_id>/recipes/")
+def get_all_recipes(user_id):
+    """
+    Endpoint for getting all recipes (both custom and AI-generated) for a user 
+    """
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Retrieve all recipes for a user (both custom and AI-generated)
+    recipes = Recipe.query.filter_by(user_id=user_id).all()
+
+    recipes_data = []
+    for recipe in recipes:
+        # Fetch ingredients for this recipe along with their quantities and units
+        ingredients = db.session.query(
+            recipe_ingredient_association_table.c.ingredient_id,
+            recipe_ingredient_association_table.c.quantity,
+            recipe_ingredient_association_table.c.unit,
+            Ingredient.name,
+            Ingredient.image_url
+        ).join(Ingredient, recipe_ingredient_association_table.c.ingredient_id == Ingredient.id).filter(
+            recipe_ingredient_association_table.c.recipe_id == recipe.id
+        ).all()
+
+        # Debugging: Print ingredients to check if they are being fetched correctly
+        print(f"Recipe ID {recipe.id} Ingredients: {ingredients}")
+
+        formatted_ingredients = []
+        for ingredient in ingredients:
+            formatted_ingredients.append({
+                "id": ingredient.ingredient_id,
+                "name": ingredient.name,
+                "quantity": ingredient.quantity,
+                "unit": ingredient.unit,
+                "image_url": ingredient.image_url
+            })
+
+        recipe_data = recipe.serialize()
+        recipe_data["ingredients"] = formatted_ingredients
+        recipes_data.append(recipe_data)
+
+    return success_response({"recipes": recipes_data})
+
+@app.route("/users/<int:user_id>/recipes-custom/")
+def get_custom_recipes(user_id):
+    """
+    Endpoint for getting all custom recipes for a user 
+    """
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Retrieve all recipes for a user 
+    recipes = Recipe.query.filter_by(user_id=user_id, ai_generated=False).all()
+
+    recipes_data = []
+    for recipe in recipes:
+        # Fetch ingredients for this recipe along with their quantities and units
+        ingredients = db.session.query(
+            recipe_ingredient_association_table.c.ingredient_id,
+            recipe_ingredient_association_table.c.quantity,
+            recipe_ingredient_association_table.c.unit,
+            Ingredient.name,
+            Ingredient.image_url
+        ).join(Ingredient, recipe_ingredient_association_table.c.ingredient_id == Ingredient.id).filter(
+            recipe_ingredient_association_table.c.recipe_id == recipe.id
+        ).all()
+
+        print(f"Recipe ID {recipe.id} Ingredients: {ingredients}")
+
+        formatted_ingredients = []
+        for ingredient in ingredients:
+            # Format the ingredients to include quantity and unit
+            formatted_ingredients.append({
+                    "id": ingredient.ingredient_id,
+                    "name": ingredient.name,
+                    "quantity": ingredient.quantity,
+                    "unit": ingredient.unit,
+                    "image_url": ingredient.image_url
+                })
+
+        recipe_data = recipe.serialize()
+        recipe_data["ingredients"] = formatted_ingredients
+        recipes_data.append(recipe_data)
+    
+    return success_response({"recipes": recipes_data})
+
+@app.route("/users/<int:user_id>/recipes-ai/")
+def get_generated_recipes(user_id):
+    """
+    Endpoint for getting al generated recipes for a user 
+    """
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Retrieve all recipes for a user 
+    recipes = Recipe.query.filter_by(user_id=user_id, ai_generated=True).all()
+
+    recipes_data = []
+    for recipe in recipes:
+        # Fetch ingredients for this recipe along with their quantities and units
+        ingredients = db.session.query(
+            recipe_ingredient_association_table.c.ingredient_id,
+            recipe_ingredient_association_table.c.quantity,
+            recipe_ingredient_association_table.c.unit,
+            Ingredient.name,
+            Ingredient.image_url
+        ).join(Ingredient, recipe_ingredient_association_table.c.ingredient_id == Ingredient.id).filter(
+            recipe_ingredient_association_table.c.recipe_id == recipe.id
+        ).all()
+
+        formatted_ingredients = []
+        for ingredient in ingredients:
+            # Format the ingredients to include quantity and unit
+            formatted_ingredients.append({
+                    "id": ingredient.ingredient_id,
+                    "name": ingredient.name,
+                    "quantity": ingredient.quantity,
+                    "unit": ingredient.unit,
+                    "image_url": ingredient.image_url
+                })
+
+        recipe_data = recipe.serialize()
+        recipe_data["ingredients"] = formatted_ingredients
+        recipes_data.append(recipe_data)
+    
+    return success_response({"recipes": recipes_data})
+
+@app.route("/users/<int:user_id>/recipes/<int:recipe_id>/")
+def get_recipe(user_id, recipe_id):
+    """
+    Endpoint for getting a specific recipe for a user by id
+    """
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    # Retrieve specific story
+    recipe = Recipe.query.filter_by(id=recipe_id, user_id=user_id).first()
+
+    # Check if story exists for a given user
+    if recipe is None:
+        return failure_response("Recipe not found for this user!")
+    
+    # Fetch ingredients for this recipe along with their quantities and units
+    ingredients = db.session.query(
+        recipe_ingredient_association_table.c.ingredient_id,
+        recipe_ingredient_association_table.c.quantity,
+        recipe_ingredient_association_table.c.unit,
+        Ingredient.name,
+        Ingredient.image_url
+    ).join(Ingredient, recipe_ingredient_association_table.c.ingredient_id == Ingredient.id).filter(
+        recipe_ingredient_association_table.c.recipe_id == recipe.id
+    ).all()
+
+    # Format the ingredients to include quantity and unit
+    formatted_ingredients = [
+        {
+            "id": ingredient.ingredient_id,
+            "name": ingredient.name,
+            "quantity": ingredient.quantity,
+            "unit": ingredient.unit,
+            "image_url": ingredient.image_url
+        }
+        for ingredient in ingredients
+    ]
+
+    # Serialize the recipe and include formatted ingredients
+    recipe_data = recipe.serialize()
+    recipe_data["ingredients"] = formatted_ingredients
+
+    return success_response(recipe_data)
+
+@app.route("/users/<int:user_id>/recipes/", methods=["POST"])
+def create_recipe(user_id):
+    """
+    Endpoint for creating a recipe
+    """
+    # Check if user exists 
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    # Load data 
+    body = json.loads(request.data)
+
+    # Create new recipe
+    new_recipe = Recipe(
+        title = body.get("title"),
+        description = body.get("description"),
+        instructions = body.get("instructions"),
+        user_id = user_id,
+        rating = body.get("rating"),
+        time = body.get("time"),
+        servings = body.get("servings"),
+        image_url = body.get("image_url"),
+        created_at = datetime.now(),
+        ai_generated = False
+    )
+
+    db.session.add(new_recipe)
+    db.session.flush()
+
+    # Get additional data
+    ingredients_data = body.get("ingredients")
+
+    # associate ingredient(s) to recipe
+    for ingredient in ingredients_data:
+        ingredient_id = ingredient.get("ingredient_id")
+        quantity = ingredient.get("quantity")
+        unit = ingredient.get("unit")
+
+        db.session.execute(recipe_ingredient_association_table.insert(), {
+        "recipe_id": new_recipe.id,
+        "ingredient_id": ingredient_id,
+        "quantity": quantity,
+        "unit": unit
+        })
+    
+    db.session.commit()
+
+    associated_ingredients = db.session.query(recipe_ingredient_association_table).filter_by(recipe_id=new_recipe.id).all()
+    print(f"Associated ingredients for recipe {new_recipe.id}: {associated_ingredients}")
+
+
+    return success_response(new_recipe.serialize(), 201)
+
 @app.route("/users/<int:user_id>/generate_recipe/", methods=["POST"])
 def generate_recipe(user_id):
     """
@@ -496,7 +750,7 @@ def generate_recipe(user_id):
         return failure_response("User not found!")
 
     # Retrieve ingredients for the user
-    ingredients = Ingredient.query.filter_by(user_id=user_id).all()
+    ingredients = user.ingredients
     if not ingredients:
         return failure_response("No ingredients found for this user!")
         
@@ -513,9 +767,11 @@ def generate_recipe(user_id):
         instructions = recipe.instructions,
         time = recipe.time,
         servings = recipe.servings,
-        created_at = datetime.now()
+        created_at = datetime.now(),
+        ai_generated = True
     )
     db.session.add(new_recipe)
+    db.session.flush()
 
     # Associate ingredients with the new recipe
     for ingredient in ingredients:
@@ -540,7 +796,7 @@ def create_ingredient(user_id):
     body = json.loads(request.data)
 
     # Check if user exists
-    user = User.query.filter_by(id=user_id)
+    user = User.query.filter_by(id=user_id).first()
     if user is None:
         return failure_response("User not found!")
     
@@ -549,6 +805,9 @@ def create_ingredient(user_id):
         name = body.get("name"),
         image_url = body.get("image_url")
     )
+
+    # Add the new ingredient to the user's ingredient list via the relationship
+    user.ingredients.append(new_ingredient)
 
     # Add and commit to database 
     db.session.add(new_ingredient)
@@ -566,8 +825,8 @@ def get_all_ingredients(user_id):
     if user is None:
         return failure_response("User not found!")
 
-    # Retrieve all stories for a user 
-    ingredients = Ingredient.query.filter_by(user_id=user_id).all()
+    # Use the relationship to retrieve all ingredients for the user
+    ingredients = user.ingredients
 
     return success_response({"ingredients": [ingredient.simple_serialize() for ingredient in ingredients]})
 
@@ -577,14 +836,14 @@ def get_ingredient(user_id, ingredient_id):
     Endpoint for getting a specific ingredient for a user by id
     """
     # Check if user exists
-    user = User.query.filter_by(id=user_id)
+    user = User.query.filter_by(id=user_id).first()
     if user is None:
         return failure_response("User not found!")
     
-    # Check if ingredient exists 
-    ingredient = Ingredient.query.filter_by(id=ingredient_id, user_id=user_id).first()
+    # Retrieve the specific ingredient for the user
+    ingredient = next((ing for ing in user.ingredients if ing.id == ingredient_id), None)
     if ingredient is None: 
-        return failure_response("Ingredient not found!")
+        return failure_response("Ingredient not found for this user!")
 
     return success_response(ingredient.simple_serialize())
     
@@ -598,14 +857,17 @@ def delete_ingredient(user_id, ingredient_id):
     if user is None:
         return failure_response("User not found!")
 
-    # Check if ingredient exists for a given user
-    ingredient = Ingredient.query.filter_by(id=ingredient_id, user_id=user_id).first()
+    # Check if ingredient exists in the user's ingredient list
+    ingredient = next((ing for ing in user.ingredients if ing.id == ingredient_id), None)
     if ingredient is None:
         return failure_response("Ingredient not found for this user!")
-    
-    # Delete ingredient
-    db.session.delete(ingredient)
+
+    # Remove the ingredient from the user's list
+    user.ingredients.remove(ingredient)
+
+    # Commit the changes to the database
     db.session.commit()
+    
     return success_response(ingredient.simple_serialize())
 
 if __name__ == "__main__":
