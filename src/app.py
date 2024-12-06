@@ -52,7 +52,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 class Recipe_Gen(BaseModel):
     title: str
     description: str 
-    instructions: str
+    instructions: List[str]
     servings: int
     time: int # Time in minutes
     rating: int
@@ -579,7 +579,7 @@ def generate_recipe_with_schema(ingredient_names: List[str]) -> Recipe_Gen:
             The recipe should include:
             - A title
             - A brief description
-            - Step-by-step instructions
+            - Step-by-step instructions (a list of strings e.g. [""Boil the spaghetti.", "Prepare the Bolognese sauce.", "Serve the sauce on top of the spaghetti."])
             - Number of servings (as an integer)
             - Estimated preparation time in minutes 
             - Rating (from 1-10 the level of difficulty of making the recipe)
@@ -805,11 +805,16 @@ def create_recipe(user_id):
     # Load data 
     body = json.loads(request.data)
 
+    # Ensure instructions is a list (array) of strings
+    instructions = body.get("instructions", [])
+    if not isinstance(instructions, list):
+        return failure_response("Instructions must be a list of strings", 400)
+
     # Create new recipe
     new_recipe = Recipe(
         title = body.get("title"),
         description = body.get("description"),
-        instructions = body.get("instructions"),
+        instructions = instructions,
         user_id = user_id,
         rating = body.get("rating"),
         time = body.get("time"),

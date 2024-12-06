@@ -16,6 +16,7 @@ import datetime
 import bcrypt
 import hashlib
 import os
+import json
 
 db = SQLAlchemy()
 
@@ -397,7 +398,7 @@ class Recipe(db.Model):
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   title = db.Column(db.String, nullable=False)
   description = db.Column(db.String, nullable=False) 
-  instructions = db.Column(db.String, nullable=False)
+  instructions = db.Column(db.Text, nullable=False)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
   # user = db.relationship("User", back_populates="recipes")
   rating = db.Column(db.Integer, nullable=True)
@@ -415,7 +416,7 @@ class Recipe(db.Model):
     """
     self.title = kwargs.get("title", "")
     self.description = kwargs.get("description", "")
-    self.instructions = kwargs.get("instructions", "")
+    self.instructions = json.dumps(kwargs.get("instructions", []))
     self.user_id = kwargs.get("user_id", "")
     # self.user = kwargs.get("user")
     self.rating = kwargs.get("rating")
@@ -434,7 +435,7 @@ class Recipe(db.Model):
       "id": self.id,
       "title": self.title,
       "description": self.description,
-      "instructions": self.instructions,
+      "instructions": json.loads(self.instructions),
       # "user": self.user,
       "rating": self.rating,
       "time": self.time,
@@ -453,7 +454,7 @@ class Recipe(db.Model):
       "id": self.id,
       "title": self.title,
       "description": self.description,
-      "instructions": self.instructions,
+      "instructions": json.loads(self.instructions),
       "rating": self.rating,
       "time": self.time,
       "servings": self.servings,
