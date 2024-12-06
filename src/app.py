@@ -1,5 +1,5 @@
 import json
-from db import db, user_story_association_table, user_event_association_table, user_recipe_association_table, recipe_ingredient_association_table
+from db import db, user_story_association_table, user_event_association_table, user_recipe_association_table, recipe_ingredient_association_table, user_event_attendance_association_table
 from flask import Flask, request 
 from db import User, Story, Event, Recipe, Ingredient 
 from datetime import datetime
@@ -135,9 +135,102 @@ def save_story(user_id, story_id):
     # Add story to user's saved stories
     insert_statement = user_story_association_table.insert().values(user_id = user_id, story_id = story_id)
     db.session.execute(insert_statement)
-    user.saved_stories.append(Story.query.filter_by(id=story_id).first())
+    user.saved_stories.append(story)
     db.session.commit()
     return success_response(user.serialize())
+
+@app.route("/users/<int:user_id>/events/<int:event_id>/save", methods=["POST"])
+def save_event(user_id, event_id):
+    """
+    Endpoint for saving an event for a user
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    #Check if event exists
+    event = Event.query.filter_by(id=event_id).first()
+    if event is None:
+        return failure_response("Event not found!")
+
+    # Add event to user's saved events
+    insert_statement = user_event_association_table.insert().values(user_id = user_id, event_id = event_id)
+    db.session.execute(insert_statement)
+    user.saved_events.append(event)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/users/<int:user_id>/recipes/<int:recipe_id>/save", methods=["POST"])
+def save_recipe(user_id, recipe_id):
+    """
+    Endpoint for saving a recipe for a user
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    #Check if recipe exists
+    recipe = Recipe.query.filter_by(id=recipe_id).first()
+    if recipe is None:
+        return failure_response("Recipe not found!")
+
+    # Add recipe to user's saved recipes
+    insert_statement = user_recipe_association_table.insert().values(user_id = user_id, recipe_id = recipe_id)
+    db.session.execute(insert_statement)
+    user.saved_recipes.append(recipe)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/users/<int:user_id>/events/<int:event_id>/attend", methods=["POST"])
+def attend_event(user_id, event_id):
+    """
+    Endpoint for a user to attend an event
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    #Check if event exists
+    event = Event.query.filter_by(id=event_id).first()
+    if event is None:
+        return failure_response("Event not found!")
+
+    # Add event to user's attending events
+    insert_statement = user_event_attendance_association_table.insert().values(user_id = user_id, event_id = event_id)
+    db.session.execute(insert_statement)
+    user.events_attending.append(event)
+    db.session.commit()
+    event.number_going += 1
+    return success_response(user.serialize())
+    
+@app.route("/users/<int:user_id>/events/<int:event_id>/unattend", methods=["POST"])
+def unattend_event(user_id, event_id):
+    """
+    Endpoint for a user to unattend an event
+    """
+    # Check if user exists
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    
+    #Check if event exists
+    event = Event.query.filter_by(id=event_id).first()
+    if event is None:
+        return failure_response("Event not found!")
+    
+    # Remove event from user's attending events
+    delete_statement = user_event_attendance_association_table.delete().where(user_event_attendance_association_table.c.user_id == user_id).where(user_event_attendance_association_table.c.event_id == event_id)
+    db.session.execute(delete_statement)
+    if event in user.events_attending:
+        user.events_attending.remove(event)
+    db.session.commit()
+    event.number_going -= 1
+    return success_response(user.serialize())
+
+    
 
 # -- STORY ROUTES -------------------------------------------------------
 
