@@ -17,6 +17,16 @@ recipe_ingredient_association_table = db.Table(
 )
 
 """ 
+Association table between Users and Ingredients
+"""
+user_ingredient_association_table = db.Table(
+  "user_ingredient_association",
+  db.Model.metadata,
+  db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+  db.Column("ingredient_id", db.Integer, db.ForeignKey("ingredients.id"))
+)
+
+""" 
 Association table between Users and Recipes
 """
 user_recipe_association_table = db.Table(
@@ -60,12 +70,11 @@ class User(db.Model):
   __tablename__ = "users"
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   username = db.Column(db.String, nullable=False)
-  email = db.Column(db.String, nullable=False)
   password = db.Column(db.String, nullable=False)
   recipes = db.relationship("Recipe", cascade="delete")
   stories = db.relationship("Story", cascade="delete")
   events = db.relationship("Event", cascade="delete")
-  ingredients = db.relationship("Ingredient", cascade="delete")
+  ingredients = db.relationship("Ingredient", secondary="user_ingredient_association", back_populates="users")
   saved_recipes = db.relationship("Recipe", secondary="users_recipes_association", back_populates="users_saved")
   saved_stories = db.relationship("Story", secondary="users_stories_association", back_populates="users_saved")
   saved_events = db.relationship("Event", secondary="users_events_association", back_populates="users_saved")
@@ -76,7 +85,6 @@ class User(db.Model):
     Initialize User object/entry
     """
     self.username = kwargs.get("username", "")
-    self.email = kwargs.get("email", "")
     self.password = kwargs.get("password", "")
 
   def serialize(self):
@@ -290,7 +298,7 @@ class Ingredient(db.Model):
   name = db.Column(db.String, nullable=False)
   image_url = db.Column(db.String, nullable=False)
   recipes = db.relationship("Recipe", secondary=recipe_ingredient_association_table, back_populates="ingredients")
-  user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+  users = db.relationship("User", secondary="user_ingredient_association", back_populates="ingredients")
 
 
   # Relationship to RecipeIngredientAssociation
