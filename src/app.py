@@ -266,7 +266,7 @@ def create_event(user_id):
         image_url = body.get("image_url"),
         title = body.get("title"),
         caption = body.get("caption"),
-        time = body.get("time"),
+        time = datetime.fromisoformat(body.get("time")),
         location = body.get("location"),
         created_at = datetime.now()
     )
@@ -291,7 +291,7 @@ def get_all_events(user_id):
     events = Event.query.filter_by(user_id=user_id).all()
     return success_response({"events": [event.serialize() for event in events]})
 
-@app.route("/users/<int:user_id>/events/<int:event_id>")
+@app.route("/users/<int:user_id>/events/<int:event_id>/")
 def get_event(event_id, user_id):
     """Endpoint for getting a specific event for a user by id"""
     # Check if user exists 
@@ -340,7 +340,7 @@ def update_event(event_id, user_id):
     event.image_url = body.get("image_url")
     event.title = body.get("title")
     event.caption = body.get("caption")
-    event.time = body.get("time")
+    event.time = datetime.fromisoformat(body.get("time"))
     event.location = body.get("location")
 
     db.session.commit()
