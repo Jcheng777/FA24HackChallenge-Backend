@@ -8,6 +8,7 @@ from typing import List
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+import users_dao
 
 app = Flask(__name__)
 db_filename = "cook_app.db"
@@ -19,6 +20,22 @@ app.config["SQLALCHEMY_ECHO"] = True
 db.init_app(app)
 with app.app_context():
     db.create_all()
+
+# Authentication helper functions
+def extract_token(request):
+    """
+    Helper function that extracts the token from the header of a request
+    """
+    auth_header = request.headers.get("Authorization")
+    if auth_header is None:
+        return False, failure_response("Missing authorization header", 401)
+    
+    #Bearer <token>
+    bearer_token = auth_header.replace("Bearer ", "").strip()
+    if not bearer_token:
+        return False, failure_response("Invalid authorization header", 401)
+    return True, bearer_token
+
 
 # Generalized response formats
 def success_response(data, code=200):
@@ -40,11 +57,102 @@ class Recipe_Gen(BaseModel):
     time: int # Time in minutes
     rating: int
 
-# -- USER ROUTES -------------------------------------------------------
+# -- ROUTES ------------------------------------------------------------
 
 @app.route("/")
 def base():
     return "hello world"
+
+
+# -- AUTHENTICATION ROUTES ----------------------------------------------
+
+@app.route("/register/", methods=["POST"])
+def register_account():
+    """
+    Endpoint for registering a new user
+    """
+    body = json.loads(request.data)
+    username = body.get("username")
+    password = body.get("password")
+    if username is None or password is None:
+        return failure_response("Missing required fields", 400)
+    created, user = users_dao.create_user(username, password)
+    if not created: 
+        return failure_response("User already exists", 409) 
+    return success_response({"session_token": user.session_token,
+                             "session_expiration": str(user.session_expiration),
+                             "refresh_token": user.refresh_token }, 201)
+
+@app.route("/login/", methods=["POST"])
+def login():
+    """
+    Endpoint for logging in a user
+    """
+    body = json.loads(request.data)
+    username = body.get("username")
+    password = body.get("password")
+    if username is None or password is None:
+        return failure_response("Missing required fields", 400)  
+    success, user = users_dao.verify_credentials(username, password)
+    if not success: 
+        return failure_response("Invalid credentials", 401)
+    user.renew_session()
+    db.session.commit()
+    return success_response({"session_token": user.session_token,
+                             "session_expiration": str(user.session_expiration),
+                             "refresh_token": user.refresh_token }, 200)
+
+@app.route("/logout/", methods=["POST"])
+def logout():
+    """
+    Endpoint for logging out a user
+    """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    user.session_expiration = datetime.now()
+    return success_response("Successfully logged out", 200)
+
+@app.route("/session/", methods=["POST"])
+def refresh_session():
+    """
+    Endpoint for refreshing a user's session
+    """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    refresh_token = response
+    try:
+        user = users_dao.renew_session(refresh_token)
+    except Exception as e:
+        return failure_response("Invalid refresh token", 401)
+    return success_response({"session_token": user.session_token,
+                             "session_expiration": str(user.session_expiration),
+                             "refresh_token": user.refresh_token }, 200)
+
+@app.route("/secret/", methods=["GET"])
+def secret_message():
+    """
+    Endpoint for verifying a session token and returning a secret message
+
+    In your project, you will use the same logic for any endpoint that needs 
+    authentication
+    """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    return success_response("Successful authentication", 200)
+
+
+# -- USER ROUTES -------------------------------------------------------
 
 @app.route("/users/")
 def get_users():
@@ -52,26 +160,6 @@ def get_users():
     Endpoint for getting all users
     """
     return success_response({"users": [u.serialize() for u in User.query.all()]})
-
-@app.route("/users/", methods=["POST"])
-def create_user():
-    """
-    Endpoint for creating a user
-    """
-    body = json.loads(request.data)
-    
-    # Create new user 
-    new_user = User(
-        username = body.get("username"),
-        email = body.get("email"),
-        password = body.get("password")
-    )
-
-    # Add and commit to database 
-    db.session.add(new_user)
-    db.session.commit()
-
-    return success_response(new_user.serialize(), 201)
 
 @app.route("/users/<int:user_id>")
 def get_user(user_id):
