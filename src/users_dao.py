@@ -46,3 +46,14 @@ def create_user(username, password):
     db.session.add(user)
     db.session.commit()
     return True, user
+
+def renew_session(refresh_token):
+    """
+    Renews the session token for a user
+    """
+    possible_user = get_user_by_refresh_token(refresh_token)
+    if possible_user is None:
+        raise Exception("Invalid refresh token")
+    possible_user.renew_session()
+    db.session.commit()
+    return possible_user
