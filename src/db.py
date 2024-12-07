@@ -38,8 +38,8 @@ recipe_ingredient_association_table = db.Table(
   db.Model.metadata,
   db.Column("recipe_id", db.Integer, db.ForeignKey("recipes.id")),
   db.Column("ingredient_id", db.Integer, db.ForeignKey("ingredients.id")),
-  db.Column("quantity", db.String, nullable=False),
-  db.Column("unit", db.String, nullable=False)
+  db.Column("quantity", db.String, nullable=True),
+  db.Column("unit", db.String, nullable=True)
 )
 
 """ 
@@ -398,7 +398,7 @@ class Recipe(db.Model):
   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
   title = db.Column(db.String, nullable=False)
   description = db.Column(db.String, nullable=False) 
-  instructions = db.Column(db.Text, nullable=False)
+  instructions = db.Column(db.Text, nullable=True)
   user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
   # user = db.relationship("User", back_populates="recipes")
   rating = db.Column(db.Integer, nullable=True)

@@ -958,7 +958,7 @@ def get_ingredient(user_id, ingredient_id):
         return failure_response("Ingredient not found for this user!")
 
     return success_response(ingredient.simple_serialize())
-    
+
 @app.route("/users/<int:user_id>/ingredients/<int:ingredient_id>/", methods=["DELETE"])
 def delete_ingredient(user_id, ingredient_id):
     """
