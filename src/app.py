@@ -134,23 +134,6 @@ def refresh_session():
                              "session_expiration": str(user.session_expiration),
                              "refresh_token": user.refresh_token }, 200)
 
-@app.route("/secret/", methods=["GET"])
-def secret_message():
-    """
-    Endpoint for verifying a session token and returning a secret message
-
-    In your project, you will use the same logic for any endpoint that needs 
-    authentication
-    """
-    success, response = extract_token(request)
-    if not success:
-        return response
-    session_token = response
-    user = users_dao.get_user_by_session_token(session_token)
-    if not user or not user.verify_session_token(session_token):
-        return failure_response("Invalid session token", 401)
-    return success_response("Successful authentication", 200)
-
 
 # -- USER ROUTES -------------------------------------------------------
 
