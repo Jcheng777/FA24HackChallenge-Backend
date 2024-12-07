@@ -134,23 +134,6 @@ def refresh_session():
                              "session_expiration": str(user.session_expiration),
                              "refresh_token": user.refresh_token }, 200)
 
-@app.route("/secret/", methods=["GET"])
-def secret_message():
-    """
-    Endpoint for verifying a session token and returning a secret message
-
-    In your project, you will use the same logic for any endpoint that needs 
-    authentication
-    """
-    success, response = extract_token(request)
-    if not success:
-        return response
-    session_token = response
-    user = users_dao.get_user_by_session_token(session_token)
-    if not user or not user.verify_session_token(session_token):
-        return failure_response("Invalid session token", 401)
-    return success_response("Successful authentication", 200)
-
 
 # -- USER ROUTES -------------------------------------------------------
 
@@ -161,41 +144,61 @@ def get_users():
     """
     return success_response({"users": [u.serialize() for u in User.query.all()]})
 
-@app.route("/users/<int:user_id>")
-def get_user(user_id):
+@app.route("/users/<string:username>")
+def get_user(username):
     """
-    Endpoint for getting a user by id
+    Endpoint for getting a user by username
     """
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None: 
         return failure_response("User not found!")
     
     return success_response(user.serialize())
 
-@app.route("/users/<int:user_id>/", methods=["DELETE"])
-def delete_user(user_id):
+@app.route("/users/<string:username>/", methods=["DELETE"])
+def delete_user(username):
     """
-    Endpoint for deleting a user by id
+    Endpoint for deleting a user by username
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     db.session.delete(user)
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/users/<int:user_id>/", methods=["POST"])
-def update_user(user_id):
+@app.route("/users/<string:username>/", methods=["POST"])
+def update_user(username):
     """
-    Endpoint for updating a user by id
+    Endpoint for updating a user by username
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     body = json.loads(request.data)
     user.username = body.get("username")
@@ -205,15 +208,25 @@ def update_user(user_id):
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/users/<int:user_id>/stories/<int:story_id>/save", methods=["POST"])
-def save_story(user_id, story_id):
+@app.route("/users/<string:username>/stories/<int:story_id>/save", methods=["POST"])
+def save_story(username, story_id):
     """
     Endpoint for saving a story for a user
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     #Check if story exists
     story = Story.query.filter_by(id=story_id).first()
@@ -221,21 +234,31 @@ def save_story(user_id, story_id):
         return failure_response("Story not found!")
 
     # Add story to user's saved stories
-    insert_statement = user_story_association_table.insert().values(user_id = user_id, story_id = story_id)
+    insert_statement = user_story_association_table.insert().values(user_id = user.id, story_id = story_id)
     db.session.execute(insert_statement)
     user.saved_stories.append(story)
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/users/<int:user_id>/events/<int:event_id>/save", methods=["POST"])
-def save_event(user_id, event_id):
+@app.route("/users/<string:username>/events/<int:event_id>/save", methods=["POST"])
+def save_event(username, event_id):
     """
     Endpoint for saving an event for a user
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     #Check if event exists
     event = Event.query.filter_by(id=event_id).first()
@@ -243,21 +266,31 @@ def save_event(user_id, event_id):
         return failure_response("Event not found!")
 
     # Add event to user's saved events
-    insert_statement = user_event_association_table.insert().values(user_id = user_id, event_id = event_id)
+    insert_statement = user_event_association_table.insert().values(user_id = user.id, event_id = event_id)
     db.session.execute(insert_statement)
     user.saved_events.append(event)
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/users/<int:user_id>/recipes/<int:recipe_id>/save", methods=["POST"])
-def save_recipe(user_id, recipe_id):
+@app.route("/users/<string:username>/recipes/<int:recipe_id>/save", methods=["POST"])
+def save_recipe(username, recipe_id):
     """
     Endpoint for saving a recipe for a user
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     #Check if recipe exists
     recipe = Recipe.query.filter_by(id=recipe_id).first()
@@ -265,21 +298,31 @@ def save_recipe(user_id, recipe_id):
         return failure_response("Recipe not found!")
 
     # Add recipe to user's saved recipes
-    insert_statement = user_recipe_association_table.insert().values(user_id = user_id, recipe_id = recipe_id)
+    insert_statement = user_recipe_association_table.insert().values(user_id = user.id, recipe_id = recipe_id)
     db.session.execute(insert_statement)
     user.saved_recipes.append(recipe)
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/users/<int:user_id>/events/<int:event_id>/attend", methods=["POST"])
-def attend_event(user_id, event_id):
+@app.route("/users/<string:username>/events/<int:event_id>/attend", methods=["POST"])
+def attend_event(username, event_id):
     """
     Endpoint for a user to attend an event
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     #Check if event exists
     event = Event.query.filter_by(id=event_id).first()
@@ -287,22 +330,32 @@ def attend_event(user_id, event_id):
         return failure_response("Event not found!")
 
     # Add event to user's attending events
-    insert_statement = user_event_attendance_association_table.insert().values(user_id = user_id, event_id = event_id)
+    insert_statement = user_event_attendance_association_table.insert().values(user_id = user.id, event_id = event_id)
     db.session.execute(insert_statement)
     user.events_attending.append(event)
     db.session.commit()
     event.number_going += 1
     return success_response(user.serialize())
     
-@app.route("/users/<int:user_id>/events/<int:event_id>/unattend", methods=["POST"])
-def unattend_event(user_id, event_id):
+@app.route("/users/<string:username>/events/<int:event_id>/unattend", methods=["POST"])
+def unattend_event(username, event_id):
     """
     Endpoint for a user to unattend an event
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     #Check if event exists
     event = Event.query.filter_by(id=event_id).first()
@@ -310,7 +363,7 @@ def unattend_event(user_id, event_id):
         return failure_response("Event not found!")
     
     # Remove event from user's attending events
-    delete_statement = user_event_attendance_association_table.delete().where(user_event_attendance_association_table.c.user_id == user_id).where(user_event_attendance_association_table.c.event_id == event_id)
+    delete_statement = user_event_attendance_association_table.delete().where(user_event_attendance_association_table.c.user_id == user.id).where(user_event_attendance_association_table.c.event_id == event_id)
     db.session.execute(delete_statement)
     if event in user.events_attending:
         user.events_attending.remove(event)
@@ -322,21 +375,31 @@ def unattend_event(user_id, event_id):
 
 # -- STORY ROUTES -------------------------------------------------------
 
-@app.route("/users/<int:user_id>/stories/", methods=["POST"])
-def create_story(user_id):
+@app.route("/users/<string:username>/stories/", methods=["POST"])
+def create_story(username):
     """ 
-    Endpoint for creating a story 
+    Endpoint for creating a story for a user
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
 
     body = json.loads(request.data)
 
     # Create new story 
     new_story = Story(
-        user_id = user_id,
+        user_id = user.id,
         image_url = body.get("image_url"),
         title = body.get("title"),
         caption = body.get("caption"),
@@ -359,33 +422,33 @@ def get_all_stories():
 
     return success_response({"stories": [story.serialize() for story in stories]})
 
-@app.route("/users/<int:user_id>/stories/")
-def get_stories(user_id): 
+@app.route("/users/<string:username>/stories/")
+def get_stories(username): 
     """
-    Endpoint for getting all stories for a user 
+    Endpoint for getting all stories for a user
     """
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
 
     # Retrieve all stories for a user 
-    stories = Story.query.filter_by(user_id=user_id).all()
+    stories = Story.query.filter_by(user_id=user.id).all()
 
     return success_response({"stories": [story.serialize() for story in stories]})
 
-@app.route("/users/<int:user_id>/stories/<int:story_id>/")
-def get_story(user_id, story_id): 
+@app.route("/users/<string:username>/stories/<int:story_id>/")
+def get_story(username, story_id): 
     """
-    Endpoint for getting a specific story for a user by id
+    Endpoint for getting a specific story for a user by username and story id
     """
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
     
     # Retrieve specific story
-    story = Story.query.filter_by(id=story_id, user_id=user_id).first()
+    story = Story.query.filter_by(id=story_id, user_id=user.id).first()
 
     # Check if story exists for a given user
     if story is None:
@@ -393,18 +456,28 @@ def get_story(user_id, story_id):
 
     return success_response(story.serialize())
 
-@app.route("/users/<int:user_id>/stories/<int:story_id>/", methods = ["DELETE"])
-def delete_story(user_id, story_id): 
+@app.route("/users/<string:username>/stories/<int:story_id>/", methods = ["DELETE"])
+def delete_story(username, story_id): 
     """
     Endpoint for deleting a specififc story for a user by id
+    
+    Authorizes user by username and session token
     """
-    # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    
     # Check if story exists for a given user
-    story = Story.query.filter_by(id=story_id, user_id=user_id).first()
+    story = Story.query.filter_by(id=story_id, user_id=user.id).first()
     if story is None:
         return failure_response("Story not found for this user!")
     
@@ -413,18 +486,28 @@ def delete_story(user_id, story_id):
     db.session.commit()
     return success_response(story.serialize())
 
-@app.route("/users/<int:user_id>/stories/<int:story_id>/", methods = ["POST"])
-def update_story(user_id, story_id): 
+@app.route("/users/<string:username>/stories/<int:story_id>/", methods = ["POST"])
+def update_story(username, story_id): 
     """
-    Endpoint updating specific story for a user by id
+    Endpoint updating specific story for a user by username and story id
+    
+    Authorizes user by username and session token
     """
-    # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    
     # Check if story exists for a given user
-    story = Story.query.filter_by(id=story_id, user_id=user_id).first()
+    story = Story.query.filter_by(id=story_id, user_id=user.id).first()
     if story is None:
         return failure_response("Story not found for this user!")
     
@@ -442,28 +525,38 @@ def update_story(user_id, story_id):
 @app.route("/events/")
 def get_all_events(): 
     """
-    Endpoint for getting all events for a user 
+    Endpoint for getting all events
     """
     # Retrieve all events for a user 
     events = Event.query.all()
 
     return success_response({"events": [event.serialize() for event in events]})
 
-@app.route("/users/<int:user_id>/events/", methods=["POST"])
-def create_event(user_id):
+@app.route("/users/<string:username>/events/", methods=["POST"])
+def create_event(username):
     """
-    Endpoint for creating an event
+    Endpoint for creating an event for user
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    
     body = json.loads(request.data)
 
     # Create new event 
     new_event = Event(
-        user_id = user_id,
+        user_id = user.id,
         image_url = body.get("image_url"),
         title = body.get("title"),
         caption = body.get("caption"),
@@ -478,45 +571,59 @@ def create_event(user_id):
 
     return success_response(new_event.serialize(), 201)
 
-@app.route("/users/<int:user_id>/events/")
-def get_events(user_id):
+@app.route("/users/<string:username>/events/")
+def get_events(username):
     """
     Endpoint for getting all events for a user
     """
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
 
     # Retrieve all events for a user 
-    events = Event.query.filter_by(user_id=user_id).all()
+    events = Event.query.filter_by(user_id=user.id).all()
     return success_response({"events": [event.serialize() for event in events]})
 
-@app.route("/users/<int:user_id>/events/<int:event_id>/")
-def get_event(event_id, user_id):
-    """Endpoint for getting a specific event for a user by id"""
+@app.route("/users/<string:username>/events/<int:event_id>/")
+def get_event(event_id, username):
+    """
+    Endpoint for getting a specific event for a user by username and event id
+    """
+    
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
 
     # Check if event exists
-    event = Event.query.filter_by(id=event_id, user_id=user_id).first()
+    event = Event.query.filter_by(id=event_id, user_id=user.id).first()
     if event is None:
         return failure_response("Event not found!")
     
     return success_response(event.serialize())
 
-@app.route("/users/<int:user_id>/events/<int:event_id>/", methods=["DELETE"])
-def delete_event(event_id, user_id):
-    """Endpoint for deleting a specific event for a user by id"""
-    # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+@app.route("/users/<string:username>/events/<int:event_id>/", methods=["DELETE"])
+def delete_event(event_id, username):
+    """
+    Endpoint for deleting a specific event for a user by username and event id
+    
+    Authorizes user by username and session token
+    """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     # Check if event exists
-    event = Event.query.filter_by(id=event_id, user_id=user_id).first()
+    event = Event.query.filter_by(id=event_id, user_id=user.id).first()
     if event is None:
         return failure_response("Event not found!")
     
@@ -524,16 +631,27 @@ def delete_event(event_id, user_id):
     db.session.commit()
     return success_response(event.serialize())
 
-@app.route("/users/<int:user_id>/events/<int:event_id>/", methods=["POST"])
-def update_event(event_id, user_id):
-    """Endpoint for updating a specific event for a user by id"""
-    # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+@app.route("/users/<string:username>/events/<int:event_id>/", methods=["POST"])
+def update_event(event_id, username):
+    """
+    Endpoint for updating a specific event for a user by username and event id
     
+    Authorizes user by username and session token
+    """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     # Check if event exists
-    event = Event.query.filter_by(id=event_id, user_id=user_id).first()
+    event = Event.query.filter_by(id=event_id, user_id=user.id).first()
     if event is None:
         return failure_response("Event not found!")
     
@@ -594,18 +712,18 @@ def generate_recipe_with_schema(ingredient_names: List[str]) -> Recipe_Gen:
         print(f"Error generating recipe: {e}")
         return None
 
-@app.route("/users/<int:user_id>/recipes/")
-def get_all_recipes(user_id):
+@app.route("/users/<string:username>/recipes/")
+def get_all_recipes(username):
     """
     Endpoint for getting all recipes (both custom and AI-generated) for a user 
     """
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
 
     # Retrieve all recipes for a user (both custom and AI-generated)
-    recipes = Recipe.query.filter_by(user_id=user_id).all()
+    recipes = Recipe.query.filter_by(user_id=user.id).all()
 
     recipes_data = []
     for recipe in recipes:
@@ -639,18 +757,18 @@ def get_all_recipes(user_id):
 
     return success_response({"recipes": recipes_data})
 
-@app.route("/users/<int:user_id>/recipes-custom/")
-def get_custom_recipes(user_id):
+@app.route("/users/<string:username>/recipes-custom/")
+def get_custom_recipes(username):
     """
-    Endpoint for getting all custom recipes for a user 
+    Endpoint for getting all custom recipes for a user
     """
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
 
     # Retrieve all recipes for a user 
-    recipes = Recipe.query.filter_by(user_id=user_id, ai_generated=False).all()
+    recipes = Recipe.query.filter_by(user_id=user.id, ai_generated=False).all()
 
     recipes_data = []
     for recipe in recipes:
@@ -684,18 +802,18 @@ def get_custom_recipes(user_id):
     
     return success_response({"recipes": recipes_data})
 
-@app.route("/users/<int:user_id>/recipes-ai/")
-def get_generated_recipes(user_id):
+@app.route("/users/<string:username>/recipes-ai/")
+def get_generated_recipes(username):
     """
-    Endpoint for getting al generated recipes for a user 
+    Endpoint for getting all generated recipes for a user
     """
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
 
     # Retrieve all recipes for a user 
-    recipes = Recipe.query.filter_by(user_id=user_id, ai_generated=True).all()
+    recipes = Recipe.query.filter_by(user_id=user.id, ai_generated=True).all()
 
     recipes_data = []
     for recipe in recipes:
@@ -727,18 +845,18 @@ def get_generated_recipes(user_id):
     
     return success_response({"recipes": recipes_data})
 
-@app.route("/users/<int:user_id>/recipes/<int:recipe_id>/")
-def get_recipe(user_id, recipe_id):
+@app.route("/users/<int:username>/recipes/<int:recipe_id>/")
+def get_recipe(username, recipe_id):
     """
-    Endpoint for getting a specific recipe for a user by id
+    Endpoint for getting a specific recipe for a user by username and recipe id
     """
     # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
+    user = User.query.filter_by(username=username).first()
     if user is None:
         return failure_response("User not found!")
     
     # Retrieve specific story
-    recipe = Recipe.query.filter_by(id=recipe_id, user_id=user_id).first()
+    recipe = Recipe.query.filter_by(id=recipe_id, user_id=user.id).first()
 
     # Check if story exists for a given user
     if recipe is None:
@@ -773,16 +891,26 @@ def get_recipe(user_id, recipe_id):
 
     return success_response(recipe_data)
 
-@app.route("/users/<int:user_id>/recipes/", methods=["POST"])
-def create_recipe(user_id):
+@app.route("/users/<string:username>/recipes/", methods=["POST"])
+def create_recipe(username):
     """
     Endpoint for creating a recipe
+    
+    Authorizes user by username and session token
     """
-    # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    
     # Load data 
     body = json.loads(request.data)
 
@@ -791,7 +919,7 @@ def create_recipe(user_id):
         title = body.get("title"),
         description = body.get("description"),
         instructions = body.get("instructions"),
-        user_id = user_id,
+        user_id = user.id,
         rating = body.get("rating"),
         time = body.get("time"),
         servings = body.get("servings"),
@@ -827,16 +955,25 @@ def create_recipe(user_id):
 
     return success_response(new_recipe.serialize(), 201)
 
-@app.route("/users/<int:user_id>/generate_recipe/", methods=["POST"])
-def generate_recipe(user_id):
+@app.route("/users/<string:username>/generate_recipe/", methods=["POST"])
+def generate_recipe(username):
     """
     Endpoint for generating a recipe from a user's ingredients
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     # Retrieve ingredients for the user
     ingredients = user.ingredients
     if not ingredients:
@@ -849,7 +986,7 @@ def generate_recipe(user_id):
         return failure_response("Failed to generate a recipe. Please try again later.")
 
     new_recipe = Recipe(
-        user_id = user_id, 
+        user_id = user.id, 
         title = recipe.title,
         description = recipe.description,
         instructions = recipe.instructions,
@@ -876,20 +1013,30 @@ def generate_recipe(user_id):
 
 # -- INGREDIENT ROUTES ---------------------------------------------------
 
-@app.route("/users/<int:user_id>/ingredients/", methods=["POST"])
-def create_ingredient(user_id):
+@app.route("/users/<string:username>/ingredients/", methods=["POST"])
+def create_ingredient(username):
     """
-    Endpoint for creating an ingredient 
+    Endpoint for creating an ingredient
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    
     body = json.loads(request.data)
 
-    # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-    
     new_ingredient = Ingredient(
-        user_id = user_id, 
+        user_id = user.id, 
         name = body.get("name"),
         image_url = body.get("image_url")
     )
@@ -903,30 +1050,50 @@ def create_ingredient(user_id):
 
     return success_response(new_ingredient.simple_serialize(), 201)
 
-@app.route("/users/<int:user_id>/ingredients/")
-def get_all_ingredients(user_id):
+@app.route("/users/<string:username>/ingredients/")
+def get_all_ingredients(username):
     """
-    Endpoint for getting all ingredients for a user
+    Endpoint for getting all ingredients for a user by username
+    
+    Authorizes user by username and session token
     """
-    # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    
     # Use the relationship to retrieve all ingredients for the user
     ingredients = user.ingredients
 
     return success_response({"ingredients": [ingredient.simple_serialize() for ingredient in ingredients]})
 
-@app.route("/users/<int:user_id>/ingredients/<int:ingredient_id>")
-def get_ingredient(user_id, ingredient_id):
+@app.route("/users/<string:username>/ingredients/<int:ingredient_id>")
+def get_ingredient(username, ingredient_id):
     """
-    Endpoint for getting a specific ingredient for a user by id
+    Endpoint for getting a specific ingredient for a user by username and ingredient id
+    
+    Authorizes user by username and session token
     """
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
     # Check if user exists
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
     
     # Retrieve the specific ingredient for the user
     ingredient = next((ing for ing in user.ingredients if ing.id == ingredient_id), None)
@@ -935,16 +1102,26 @@ def get_ingredient(user_id, ingredient_id):
 
     return success_response(ingredient.simple_serialize())
     
-@app.route("/users/<int:user_id>/ingredients/<int:ingredient_id>/", methods=["DELETE"])
-def delete_ingredient(user_id, ingredient_id):
+@app.route("/users/<string:username>/ingredients/<int:ingredient_id>/", methods=["DELETE"])
+def delete_ingredient(username, ingredient_id):
     """
-    Endpoint for deleting a specific ingredient for a user by id
+    Endpoint for deleting a specific ingredient for a user by username and ingredient id
+    
+    Authorizes user by username and session token
     """
-    # Check if user exists 
-    user = User.query.filter_by(id=user_id).first()
-    if user is None:
-        return failure_response("User not found!")
-
+    success, response = extract_token(request)
+    if not success:
+        return response
+    session_token = response
+    user_by_username = users_dao.get_user_by_username(username)
+    # Check if user exists
+    if not user_by_username:
+        return failure_response("User not found")
+    # Check if valid token
+    user = users_dao.get_user_by_session_token(session_token)
+    if not user or user != user_by_username or not user.verify_session_token(session_token):
+        return failure_response("Invalid session token", 401)
+    
     # Check if ingredient exists in the user's ingredient list
     ingredient = next((ing for ing in user.ingredients if ing.id == ingredient_id), None)
     if ingredient is None:
