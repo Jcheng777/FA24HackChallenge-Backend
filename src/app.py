@@ -596,8 +596,47 @@ def generate_recipe_with_schema(ingredient_names: List[str]) -> Recipe_Gen:
         print(f"Error generating recipe: {e}")
         return None
 
+@app.route("/recipes/")
+def get_all_recipes():
+    """
+    Endpoint for getting all recipes for all users
+    """
+    # Retrieve all recipes from the database
+    recipes = Recipe.query.all()
+
+    # Serialize the recipes and their associated ingredients
+    recipes_data = []
+    for recipe in recipes:
+        # Fetch ingredients for this recipe along with their quantities and units
+        ingredients = db.session.query(
+            recipe_ingredient_association_table.c.ingredient_id,
+            recipe_ingredient_association_table.c.quantity,
+            recipe_ingredient_association_table.c.unit,
+            Ingredient.name,
+            Ingredient.image_url
+        ).join(Ingredient, recipe_ingredient_association_table.c.ingredient_id == Ingredient.id).filter(
+            recipe_ingredient_association_table.c.recipe_id == recipe.id
+        ).all()
+
+        formatted_ingredients = [
+            {
+                "id": ingredient.ingredient_id,
+                "name": ingredient.name,
+                "quantity": ingredient.quantity,
+                "unit": ingredient.unit,
+                "image_url": ingredient.image_url
+            }
+            for ingredient in ingredients
+        ]
+
+        recipe_data = recipe.serialize()
+        recipe_data["ingredients"] = formatted_ingredients
+        recipes_data.append(recipe_data)
+
+    return success_response({"recipes": recipes_data})
+
 @app.route("/users/<int:user_id>/recipes/")
-def get_all_recipes(user_id):
+def get_recipes(user_id):
     """
     Endpoint for getting all recipes (both custom and AI-generated) for a user 
     """
