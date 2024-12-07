@@ -15,8 +15,8 @@ Backend Info
 - 6 Models (with various relationships between them): User, Story, Event, Recipe, Ingredient, Asset
 - More info on API specs/models: https://guiltless-stealer-db4.notion.site/Backend-Models-API-Specifications-1557fe81e09d801292c2fe2bb5fad969#1557fe81e09d805b900dfb06b5abec98
 
-  ![Fall24-80](https://github.com/user-attachments/assets/65f7b824-af7d-44e1-a492-16baa5a135ef)
-
-
 Additional Info: 
 - BTW while we have athorization implemented, we were unable to deploy it in our main due to the frontend not having enough time to implement it yet (because of all the incredible screens they had to make), therefore the real authorization is fully implemented in the necessary routes in the "ashlie" branch.
+
+Our database design:
+  ![Fall24-80](https://github.com/user-attachments/assets/65f7b824-af7d-44e1-a492-16baa5a135ef)
