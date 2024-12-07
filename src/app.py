@@ -144,7 +144,7 @@ def get_users():
     """
     return success_response({"users": [u.serialize() for u in User.query.all()]})
 
-@app.route("/users/<int:user_id>")
+@app.route("/users/<int:user_id>/")
 def get_user(user_id):
     """
     Endpoint for getting a user by id
